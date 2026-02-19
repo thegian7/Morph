@@ -74,6 +74,8 @@ export interface UserSettings {
   palette: PaletteName;
   borderThickness: BorderThickness;
   borderPosition: BorderPosition;
+  /** Calendar IDs whose events should be excluded from border state calculation. */
+  ignoredCalendarIds: string[];
 }
 
 /** Default user settings. */
@@ -83,6 +85,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   palette: 'ambient',
   borderThickness: 'medium',
   borderPosition: 'all',
+  ignoredCalendarIds: [],
 };
 
 /** Opacity multipliers for each intensity level. */

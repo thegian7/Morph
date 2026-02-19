@@ -158,7 +158,7 @@ export function getBorderState(
   settings: UserSettings,
 ): BorderState {
   const palette = PALETTES[settings.palette];
-  const parsed = parseEvents(events);
+  const parsed = parseEvents(events, settings);
   const { fromPhase, toPhase, t } = resolvePhase(parsed, now, settings);
 
   const from = palette[fromPhase];

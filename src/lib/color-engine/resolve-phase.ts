@@ -7,10 +7,15 @@ export interface ParsedEvent {
   endTime: Date;
 }
 
-/** Filter and parse events: remove ignored and all-day, sort by start time. */
-export function parseEvents(events: CalendarEvent[]): ParsedEvent[] {
+/** Filter and parse events: remove ignored, all-day, and calendar-ignored events. Sort by start time. */
+export function parseEvents(events: CalendarEvent[], settings?: UserSettings): ParsedEvent[] {
+  const ignoredCals = settings?.ignoredCalendarIds ?? [];
   return events
-    .filter((e) => !e.ignored && !e.isAllDay)
+    .filter((e) => {
+      if (e.ignored || e.isAllDay) return false;
+      if (ignoredCals.length > 0 && e.calendarId && ignoredCals.includes(e.calendarId)) return false;
+      return true;
+    })
     .map((e) => ({
       id: e.id,
       startTime: new Date(e.startTime),
