@@ -1,0 +1,12 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for the overlay spike",
+  "windows": ["overlay"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-set-ignore-cursor-events",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-fullscreen"
+  ]
+}
