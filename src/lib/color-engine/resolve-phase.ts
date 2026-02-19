@@ -183,17 +183,37 @@ export function resolveInSessionPhase(progress: number): {
 /** Threshold in minutes: gaps shorter than this are "short". */
 const SHORT_GAP_THRESHOLD = 10;
 
+/** Minutes past session end during which overtime is shown before gap kicks in. */
+const OVERTIME_DURATION = 5;
+
 /**
  * Resolve the gap phase between two sessions.
  * `gapMinutes` is the total gap length in minutes.
+ * `minutesIntoGap` is how far into the gap we currently are.
+ *
+ * For short gaps (< 10 min): gap-short (no interpolation — stay alert).
+ * For gaps around the threshold: interpolate gap-short → gap-long.
+ * For long gaps (> 10 min): gap-long, then transition into warning for next event.
  */
-export function resolveGapPhase(gapMinutes: number): {
+export function resolveGapPhase(
+  gapMinutes: number,
+  minutesIntoGap?: number,
+): {
   fromPhase: Phase;
   toPhase: Phase;
   t: number;
 } {
   if (gapMinutes < SHORT_GAP_THRESHOLD) {
     return { fromPhase: 'gap-short', toPhase: 'gap-short', t: 0 };
+  }
+  // For gaps right around the threshold (10-15 min), interpolate
+  // from gap-short to gap-long over the first half of the gap.
+  if (minutesIntoGap !== undefined && gapMinutes < 20) {
+    const halfGap = gapMinutes / 2;
+    if (minutesIntoGap < halfGap) {
+      const t = minutesIntoGap / halfGap;
+      return { fromPhase: 'gap-short', toPhase: 'gap-long', t };
+    }
   }
   return { fromPhase: 'gap-long', toPhase: 'gap-long', t: 0 };
 }
@@ -244,28 +264,33 @@ export function resolvePhase(
     const nextStarts = futureSessions[0];
     const gapMs = nextStarts.startTime.getTime() - lastEnded.endTime.getTime();
     const gapMinutes = gapMs / 60_000;
-
-    // Are we still in the overtime zone of the previous session?
-    // Overtime extends up to 5 minutes past the session end.
     const timeSinceEnd = (nowMs - lastEnded.endTime.getTime()) / 60_000;
-    if (timeSinceEnd < 5) {
+    const minutesUntilNext = (nextStarts.startTime.getTime() - nowMs) / 60_000;
+
+    // Overtime zone: first OVERTIME_DURATION minutes after session end.
+    // For very short gaps, overtime fills the whole gap (no separate gap phase).
+    if (timeSinceEnd < OVERTIME_DURATION && gapMinutes <= OVERTIME_DURATION) {
       return { fromPhase: 'overtime', toPhase: 'overtime', t: 0 };
     }
 
-    // Otherwise, treat as a gap if the next event is less than the farthest warning window away
-    const minutesUntilNext = (nextStarts.startTime.getTime() - nowMs) / 60_000;
-    const farthestWarning = Math.max(...settings.warningWindows);
-    if (minutesUntilNext <= farthestWarning || gapMinutes < FREE_DEEP_THRESHOLD) {
-      // Check if the gap itself is short — if so, show gap phase
+    // Transition from overtime → gap/warning over the overtime window
+    if (timeSinceEnd < OVERTIME_DURATION) {
+      // Interpolate overtime → next phase
+      const t = timeSinceEnd / OVERTIME_DURATION;
       if (gapMinutes < SHORT_GAP_THRESHOLD) {
-        return resolveGapPhase(gapMinutes);
+        return { fromPhase: 'overtime', toPhase: 'gap-short', t };
       }
-      // Otherwise use warning sequence for the upcoming event
-      const boundaries = buildWarningBoundaries(settings);
-      return resolvePreSessionPhase(minutesUntilNext, boundaries);
+      return { fromPhase: 'overtime', toPhase: 'gap-long', t };
     }
 
-    // Long gap, far from next event — treat as free-deep leading into warning
+    // Past the overtime window — resolve gap or warning for next event
+    const minutesIntoGap = timeSinceEnd;
+
+    if (gapMinutes < SHORT_GAP_THRESHOLD) {
+      return resolveGapPhase(gapMinutes, minutesIntoGap);
+    }
+
+    // For longer gaps, use the warning sequence for the upcoming event
     const boundaries = buildWarningBoundaries(settings);
     return resolvePreSessionPhase(minutesUntilNext, boundaries);
   }
@@ -274,7 +299,7 @@ export function resolvePhase(
     // Past all sessions, check overtime
     const lastEnded = pastSessions[pastSessions.length - 1];
     const timeSinceEnd = (nowMs - lastEnded.endTime.getTime()) / 60_000;
-    if (timeSinceEnd < 5) {
+    if (timeSinceEnd < OVERTIME_DURATION) {
       return { fromPhase: 'overtime', toPhase: 'overtime', t: 0 };
     }
     // No more events for the day
