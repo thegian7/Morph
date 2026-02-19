@@ -17,21 +17,16 @@ mod macos {
         let screen = NSScreen::mainScreen(mtm).expect("no main screen");
         let frame: NSRect = screen.frame();
 
-        // Set window size to cover entire screen
-        window
-            .set_position(tauri::LogicalPosition::new(frame.origin.x, frame.origin.y))
-            .expect("failed to set position");
-        window
-            .set_size(tauri::LogicalSize::new(frame.size.width, frame.size.height))
-            .expect("failed to set size");
-
         // Access the underlying NSWindow to set advanced properties
         let ns_window_ptr = window.ns_window().expect("failed to get NSWindow");
         let ns_window: &NSWindow = unsafe { &*(ns_window_ptr as *const NSWindow) };
 
+        // Set the window frame directly using NSWindow API to avoid
+        // coordinate system conversion issues between macOS (bottom-left origin)
+        // and Tauri (top-left origin). This places the window exactly on the screen.
+        ns_window.setFrame_display_animate(frame, true, false);
+
         // kCGOverlayWindowLevel = 25 — above normal windows but below screen saver
-        // For the real app we might want kCGScreenSaverWindowLevel (1000)
-        // or kCGStatusWindowLevel (25), but 25 is fine for the spike
         ns_window.setLevel(25);
 
         // Make the window appear on all Spaces and not show in Expose/Mission Control
