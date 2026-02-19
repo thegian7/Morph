@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LightTime Windows Overlay Spike</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      .border-strip {
+        position: fixed;
+        background-color: #4A9B6E;
+        opacity: 0.6;
+        z-index: 9999;
+        /* CSS transition for smooth color changes in production */
+        transition: background-color 10s ease-in-out, opacity 10s ease-in-out;
+      }
+
+      .border-top {
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+      }
+
+      .border-bottom {
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+      }
+
+      .border-left {
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 6px;
+      }
+
+      .border-right {
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="border-strip border-top"></div>
+    <div class="border-strip border-bottom"></div>
+    <div class="border-strip border-left"></div>
+    <div class="border-strip border-right"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
