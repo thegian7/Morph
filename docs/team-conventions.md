@@ -1,66 +1,28 @@
 # LightTime Team Conventions
 
-**Team composition:** 10 Claude Code agents
-**Coordination:** Git worktrees + mutex locks on shared files
+**Team composition:** Up to 10 Claude Code agents
+**Coordination:** Centralized git (lead only) + mutex locks on shared files
 **Last Updated:** February 19, 2026
 
 ---
 
 ## Git Workflow
 
-### Branch Model
+### Centralized Git Model
 
-Each agent works in an isolated **git worktree** on a dedicated branch. No agent commits directly to `main`. Completed work merges to `main` via fast-forward after rebasing.
+**Agents do NOT run any git commands.** All git operations (add, commit, branch, merge) are performed exclusively by the team lead. This prevents cross-contamination issues observed in Sprint 0 where agents accidentally committed each other's files.
 
-```
-main (protected — no direct commits)
-  ├── agent/overlay-spike/ts-1
-  ├── agent/google-spike/ts-5
-  ├── agent/ms-spike/ts-6
-  ├── agent/color-types/ce-1
-  ├── agent/cal-abstraction/cal-1
-  └── ...
-```
+#### Agent responsibilities:
+- Write code and run tests in their assigned file zones
+- Use mutex locks for shared files
+- Signal "task complete" to the team lead when done
 
-### Branch Naming
-
-```
-agent/{agent-name}/{task-id}
-```
-
-Examples:
-
-- `agent/overlay-mac/ts-1`
-- `agent/color-engine/ce-2`
-- `agent/google-cal/cal-2`
-
-### Worktree Setup
-
-Each agent creates a worktree at the start of their task:
-
-```bash
-# From the main repo
-git worktree add ../lighttime-{agent-name} -b agent/{agent-name}/{task-id} main
-```
-
-When the task is complete:
-
-```bash
-# Merge back to main
-cd /path/to/main/repo
-git checkout main
-git merge --ff-only agent/{agent-name}/{task-id}
-
-# If fast-forward fails, rebase first
-git checkout agent/{agent-name}/{task-id}
-git rebase main
-git checkout main
-git merge --ff-only agent/{agent-name}/{task-id}
-
-# Clean up
-git worktree remove ../lighttime-{agent-name}
-git branch -d agent/{agent-name}/{task-id}
-```
+#### Team lead responsibilities:
+- Review agent output
+- Stage specific files (`git add <file>` — never `git add .`)
+- Commit with conventional commit messages
+- Manage branches and merges
+- Decide when to commit (batch related changes, keep commits atomic)
 
 ---
 
@@ -267,6 +229,24 @@ Sprint 0 has a bottleneck: TS-2, TS-3, TS-4 all depend on TS-1.
 | `ui-settings`      | Settings window wireframes / component structure       |
 | Any finished agent | Pick up Sprint 1 tasks with no dependencies            |
 
+### Sprint 0 Retrospective
+
+**What worked:**
+- Mutex lockfiles for shared file coordination
+- Wave-based agent spawning (6 → 2 → 1) respected dependency chains
+- Idle agents picked up follow-on work (color-engine completed CE-2 through CE-6, apple-cal set up CI)
+- All 6 spikes + bonus production code completed in one session
+
+**What didn't work:**
+- Agents running git commands caused cross-contamination (broad `git add` committed other agents' files)
+- Worktrees were planned but never used — all agents worked in the same directory
+- Branch merging was messy due to leaked commits
+
+**Changes for Sprint 1+:**
+- **Centralized git**: Only the team lead runs git commands (see Git Workflow above)
+- Agents focus purely on code + tests, signal completion to lead
+- Lead reviews and commits with specific file staging
+
 ---
 
 ## Testing Standards
@@ -303,6 +283,6 @@ A task is complete when:
 3. Tests pass (unit tests at minimum; integration tests where specified)
 4. `cargo clippy` passes with no warnings
 5. `npx eslint .` passes with no errors
-6. Code is committed with a conventional commit message
-7. Branch is rebased on latest `main` and merges cleanly
+6. Agent signals completion to the team lead
+7. Team lead commits and merges the work
 8. Asana task is marked complete
