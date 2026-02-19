@@ -1,4 +1,5 @@
 # Technical Architecture Analysis
+
 ## Ambient Screen Border Timer (LightTime)
 
 **Date:** February 19, 2026
@@ -32,6 +33,7 @@ Tauri 2 provides window configuration options that cover several of our requirem
 - **`setIgnoreCursorEvents(true)`** -- Disables mouse event capture, allowing clicks to pass through.
 
 A basic overlay window configuration in `tauri.conf.json`:
+
 ```json
 {
   "windows": [
@@ -82,6 +84,7 @@ There are reported issues with Tauri creating windows on multiple monitors (`#14
 ### Tauri Overlay Verdict
 
 **Feasible with caveats.** The core use case (transparent, click-through, always-on-top border) is achievable but will require:
+
 - Platform-specific Rust code to set native window levels (especially macOS)
 - A spike to verify `setIgnoreCursorEvents` reliability on Windows
 - Potentially bypassing Tauri's window API to set native window styles directly
@@ -112,12 +115,12 @@ The Mac App Store requires all apps to be sandboxed. Sandbox restrictions releva
 
 ### Recommended Distribution Strategy
 
-| Channel | Timeline | Notes |
-|---------|----------|-------|
-| **Direct download + notarization** | MVP | Full functionality, no sandbox restrictions |
-| **Auto-updater (Tauri built-in)** | MVP | Sparkle-based on macOS, NSIS on Windows |
-| **Mac App Store** | Post-MVP, if feasible | May require feature compromises (no fullscreen overlay) |
-| **Microsoft Store** | Post-MVP | Less restrictive than Mac App Store |
+| Channel                            | Timeline              | Notes                                                   |
+| ---------------------------------- | --------------------- | ------------------------------------------------------- |
+| **Direct download + notarization** | MVP                   | Full functionality, no sandbox restrictions             |
+| **Auto-updater (Tauri built-in)**  | MVP                   | Sparkle-based on macOS, NSIS on Windows                 |
+| **Mac App Store**                  | Post-MVP, if feasible | May require feature compromises (no fullscreen overlay) |
+| **Microsoft Store**                | Post-MVP              | Less restrictive than Mac App Store                     |
 
 Apple notarization (without the App Store) provides the same security assurance to users without sandbox restrictions. The app can be signed, notarized, and distributed via direct download with Gatekeeper approval.
 
@@ -130,16 +133,19 @@ Apple notarization (without the App Store) provides the same security assurance 
 **Complexity: MEDIUM-HIGH**
 
 #### OAuth2 Flow for Desktop Apps
+
 - Uses the "installed application" flow with PKCE (Proof Key for Code Exchange)
 - Requires opening the system browser for authentication (no embedded webview -- Google blocks this)
 - Must handle a localhost redirect URI to capture the authorization code
 - Token storage: Access tokens (1 hour TTL) + refresh tokens must be stored securely
 
 #### Scopes Required
+
 - `https://www.googleapis.com/auth/calendar.events.readonly` -- Read calendar events
 - This is classified as a **sensitive scope** by Google
 
 #### Verification Requirements
+
 - **Sensitive scope verification** is mandatory before public launch
 - Requires: privacy policy URL, homepage, app description, detailed justification for each scope
 - Requires: **YouTube video** demonstrating the auth flow and how calendar data is used
@@ -148,6 +154,7 @@ Apple notarization (without the App Store) provides the same security assurance 
 - During development, users see a scary "This app isn't verified" warning and must click through "Advanced > Go to (unsafe)"
 
 #### Gotchas
+
 - Refresh token limits: One per client/user combo. If a new refresh token is issued, the old one may be revoked.
 - Token secure storage: Must use OS keychain (macOS Keychain, Windows Credential Manager) -- not plaintext files.
 - Rate limits: 1,000,000 queries/day default, but per-user limits of ~10 queries/second.
@@ -158,21 +165,25 @@ Apple notarization (without the App Store) provides the same security assurance 
 **Complexity: MEDIUM**
 
 #### OAuth2 Flow
+
 - Uses MSAL (Microsoft Authentication Library) for token management
 - MSAL handles token caching, refresh, and retry logic automatically
 - Supports `authorization_code` flow with PKCE for desktop apps
 - Redirect URI: `https://login.microsoftonline.com/common/oauth2/nativeclient`
 
 #### Scopes Required
+
 - `Calendars.Read` -- Read user calendar events
 - `offline_access` -- Required to get a refresh token
 
 #### Azure App Registration
+
 - Must register the app in Azure Active Directory (Entra ID)
 - Configure as a "Public client/native application"
 - Multi-tenant by default (supports personal and work accounts)
 
 #### Gotchas
+
 - Public client refresh tokens are device-bound -- cannot be used across devices
 - Organization admins can restrict which apps their users authorize (admin consent may be required)
 - Personal Microsoft accounts vs. work/school accounts have different token behaviors
@@ -183,18 +194,21 @@ Apple notarization (without the App Store) provides the same security assurance 
 **Complexity: LOW-MEDIUM**
 
 #### Access Model
+
 - No OAuth -- uses macOS system permissions directly
 - Three levels: No access, write-only, full access
 - User grants permission via system dialog on first use
 - Works within the macOS sandbox (App Store compatible)
 
 #### Rust Integration
+
 - The `objc2-event-kit` crate provides Rust bindings to Apple's EventKit framework
 - Classes available: `EKEventStore`, `EKCalendar`, `EKEvent`, `EKAlarm`
 - Can be wrapped as a Tauri plugin for clean frontend/backend separation
 - Only available on macOS (no Windows/Linux support -- as noted in PRD Open Question #3)
 
 #### Gotchas
+
 - Tauri apps may re-request permissions after every app update (`#11085`)
 - Need a `tauri-plugin-macos-permissions` or equivalent to handle permission prompts gracefully
 - EventKit provides real-time event changes via `EKEventStoreChangedNotification` -- better than polling
@@ -202,11 +216,11 @@ Apple notarization (without the App Store) provides the same security assurance 
 
 ### Calendar Integration Verdict
 
-| Provider | Complexity | Gotchas | MVP Priority |
-|----------|-----------|---------|-------------|
-| **Google Calendar** | Medium-High | Verification takes weeks, scary unverified warning, PKCE flow | P0 -- Most users |
-| **Microsoft Graph** | Medium | No Rust MSAL SDK, admin consent issues for org accounts | P0 -- Enterprise users |
-| **Apple EventKit** | Low-Medium | macOS only, permission re-prompt on updates | P1 -- Nice to have |
+| Provider            | Complexity  | Gotchas                                                       | MVP Priority           |
+| ------------------- | ----------- | ------------------------------------------------------------- | ---------------------- |
+| **Google Calendar** | Medium-High | Verification takes weeks, scary unverified warning, PKCE flow | P0 -- Most users       |
+| **Microsoft Graph** | Medium      | No Rust MSAL SDK, admin consent issues for org accounts       | P0 -- Enterprise users |
+| **Apple EventKit**  | Low-Medium  | macOS only, permission re-prompt on updates                   | P1 -- Nice to have     |
 
 **Recommendation:** Build Google Calendar first (largest user base), Microsoft second. Apple EventKit is a differentiator on macOS but can come slightly later. Consider using a calendar abstraction layer (like Nylas or a shared interface) to avoid maintaining three separate integrations.
 
@@ -221,18 +235,21 @@ LightTime renders a fullscreen transparent window with a thin colored border usi
 ### GPU/CPU Cost Analysis
 
 #### Idle State (No Animation)
+
 - A static transparent window with solid-color border divs uses **minimal GPU resources**
 - The compositor treats it as a single texture layer
 - Expected CPU usage: **< 0.5%** when idle (no transitions)
 - Expected memory: **20-40 MB** typical for a Tauri app with a minimal webview
 
 #### During Color Transitions
+
 - CSS `transition` on `background-color` with 8-15 second durations is extremely lightweight
 - The browser composites `background-color` changes on the GPU
 - At 8-15 second transition durations, the GPU update rate is trivially low
 - Expected CPU impact during transition: **< 1%**
 
 #### Pulse Animation
+
 - CSS `animation` with `opacity` changes can be GPU-accelerated
 - Using `will-change: opacity` or `transform: translateZ(0)` ensures compositor-layer promotion
 - Pulse cycles of 1-3 seconds are well within normal CSS animation performance
@@ -266,10 +283,12 @@ LightTime renders a fullscreen transparent window with a thin colored border usi
 Prioritized by risk and dependency on architecture decisions.
 
 ### Spike 1: Transparent Click-Through Overlay (CRITICAL)
+
 **Priority: P0 -- Must complete before committing to Tauri**
 **Estimated effort: 2-3 days**
 
 Build a minimal Tauri 2 app that:
+
 - Creates a transparent, frameless, always-on-top window
 - Renders a colored border (4 divs along edges)
 - Enables `setIgnoreCursorEvents(true)` for full click-through
@@ -280,30 +299,36 @@ Build a minimal Tauri 2 app that:
 **Success criteria:** Border is visible, click-through works, apps beneath remain fully interactive on both platforms.
 
 ### Spike 2: Four-Window vs. Single-Window Architecture (HIGH)
+
 **Priority: P0 -- Informs fundamental architecture**
 **Estimated effort: 1-2 days**
 
 Compare two approaches:
+
 - **Single fullscreen transparent window**: Simpler code, but larger compositor surface, potential issues with fullscreen apps
 - **Four thin windows** (top, bottom, left, right strips): Smaller compositor surface, inherently click-through (only covers border area), but more complex window management and positioning
 
 Test: Multi-monitor behavior, window positioning accuracy, resize handling when display resolution changes.
 
 ### Spike 3: macOS Window Level Above Fullscreen (HIGH)
+
 **Priority: P0 -- Core feature depends on this**
 **Estimated effort: 1-2 days**
 
 Use the `objc2` crate to:
+
 - Access the native `NSWindow` from Tauri's window handle
 - Set `window.level` to `.screenSaver` or `CGWindowLevelForKey(.maximumWindow)`
 - Set `collectionBehavior` to `[.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]`
 - Verify the overlay appears above macOS native fullscreen apps and in all Spaces
 
 ### Spike 4: Google Calendar OAuth2 Flow (MEDIUM)
+
 **Priority: P1 -- Complex but well-documented**
 **Estimated effort: 2-3 days**
 
 Implement the OAuth2 PKCE flow for Google Calendar:
+
 - Open system browser with authorization URL
 - Listen on localhost for the redirect callback
 - Exchange code for tokens
@@ -312,20 +337,24 @@ Implement the OAuth2 PKCE flow for Google Calendar:
 - Handle token refresh
 
 ### Spike 5: Apple EventKit via Rust FFI (MEDIUM)
+
 **Priority: P2 -- macOS-only, can defer**
 **Estimated effort: 2-3 days**
 
 Build a minimal Tauri plugin using `objc2-event-kit`:
+
 - Request calendar access permission
 - Fetch events from `EKEventStore`
 - Listen for `EKEventStoreChangedNotification` for real-time updates
 - Return events to the frontend via Tauri commands
 
 ### Spike 6: Windows Click-Through Fallback (MEDIUM)
+
 **Priority: P1 -- Required if Spike 1 reveals Windows issues**
 **Estimated effort: 1-2 days**
 
 If `setIgnoreCursorEvents` does not work reliably on Windows:
+
 - Access the native `HWND` from Tauri's window handle
 - Apply `WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_TOPMOST` directly via the Windows API (`windows` crate)
 - Verify click-through and visual rendering
@@ -339,6 +368,7 @@ If `setIgnoreCursorEvents` does not work reliably on Windows:
 **Yes, with caveats.** Tauri 2 is the right choice for this project, but expect to write platform-specific Rust code for the overlay window behavior. Here's why:
 
 #### Why Tauri 2 Is Correct
+
 - **Lightweight**: 20-40 MB RAM vs. 150-300 MB for Electron. Critical for an always-on background app.
 - **Rust backend**: Direct access to native APIs via `objc2` (macOS) and `windows` crate (Windows) without external FFI.
 - **Built-in auto-updater**: Saves significant development time.
@@ -346,11 +376,13 @@ If `setIgnoreCursorEvents` does not work reliably on Windows:
 - **Active ecosystem**: 70,000+ GitHub stars, 2,000+ contributors.
 
 #### Why NOT Electron
+
 - Electron's transparent window support is better documented but has the same fundamental limitation (no per-pixel click-through).
 - Electron apps use 5-10x more memory -- unacceptable for an always-on utility.
 - Electron bundles Chromium (~150 MB download size) vs. Tauri using the OS webview.
 
 #### Why NOT a Fully Native App
+
 - Building a native app (Swift on macOS, C++ on Windows) would give perfect overlay control but doubles the development effort.
 - The overlay is the only component that needs native code. The settings UI, color engine, and calendar logic are all platform-agnostic.
 
@@ -398,6 +430,7 @@ Use four narrow windows (one per screen edge) instead of one fullscreen transpar
 - **Con**: Corner rendering requires careful overlap management
 
 Each edge window would be (e.g., for "medium" thickness):
+
 - Top: full width x 6px
 - Bottom: full width x 6px
 - Left: 6px x full height
@@ -406,6 +439,7 @@ Each edge window would be (e.g., for "medium" thickness):
 #### 2. Color Engine in TypeScript (As PRD Specifies)
 
 Keep the color engine as a pure TypeScript module. It's the right call:
+
 - Fully testable without any native dependencies
 - Can run identically in browser tests and the Tauri app
 - State transitions are simple enough that TS performance is irrelevant
@@ -451,6 +485,7 @@ Implement separately for Google (REST + OAuth2), Microsoft (REST + OAuth2), and 
 #### 5. Token Storage
 
 Use OS-native secure storage:
+
 - macOS: Keychain via `security-framework` crate
 - Windows: Credential Manager via `windows` crate
 - Consider `keyring` crate which abstracts both
@@ -464,12 +499,12 @@ Use OS-native secure storage:
 
 ### Stack Changes from PRD
 
-| PRD Spec | Recommendation | Reason |
-|----------|---------------|--------|
-| Single fullscreen overlay | Four edge windows | Performance, click-through reliability |
-| Mac App Store (post-MVP) | Direct download + notarization first | Sandbox conflicts with core feature |
-| React frontend | Keep React (or consider Svelte for lighter bundle) | Svelte would reduce overlay window bundle size |
-| Zustand state | Keep for settings window; overlay windows use simple event-driven updates | Overlay is too simple to need a state library |
+| PRD Spec                  | Recommendation                                                            | Reason                                         |
+| ------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------- |
+| Single fullscreen overlay | Four edge windows                                                         | Performance, click-through reliability         |
+| Mac App Store (post-MVP)  | Direct download + notarization first                                      | Sandbox conflicts with core feature            |
+| React frontend            | Keep React (or consider Svelte for lighter bundle)                        | Svelte would reduce overlay window bundle size |
+| Zustand state             | Keep for settings window; overlay windows use simple event-driven updates | Overlay is too simple to need a state library  |
 
 ### Development Phase Recommendation
 
@@ -484,15 +519,15 @@ Use OS-native secure storage:
 
 ## Summary of Risks
 
-| Risk | Severity | Likelihood | Mitigation |
-|------|----------|-----------|------------|
-| Click-through fails on Windows | High | Medium | Native window styles fallback (Spike 6) |
-| Overlay not visible above fullscreen apps | High | Medium | Native window level code (Spike 3) |
-| Google OAuth verification takes too long | Medium | High | Start verification early, use unverified mode (100 users) for beta |
-| Mac App Store rejection | Medium | High | Ship direct download first, App Store is optional |
-| Performance on older hardware | Low | Low | Four-window approach mitigates; CSS transitions are lightweight |
-| Apple EventKit Rust bindings immature | Low | Medium | Defer to post-MVP if problematic |
-| Multi-monitor window placement bugs | Medium | Medium | Defer to post-MVP; test during spike |
+| Risk                                      | Severity | Likelihood | Mitigation                                                         |
+| ----------------------------------------- | -------- | ---------- | ------------------------------------------------------------------ |
+| Click-through fails on Windows            | High     | Medium     | Native window styles fallback (Spike 6)                            |
+| Overlay not visible above fullscreen apps | High     | Medium     | Native window level code (Spike 3)                                 |
+| Google OAuth verification takes too long  | Medium   | High       | Start verification early, use unverified mode (100 users) for beta |
+| Mac App Store rejection                   | Medium   | High       | Ship direct download first, App Store is optional                  |
+| Performance on older hardware             | Low      | Low        | Four-window approach mitigates; CSS transitions are lightweight    |
+| Apple EventKit Rust bindings immature     | Low      | Medium     | Defer to post-MVP if problematic                                   |
+| Multi-monitor window placement bugs       | Medium   | Medium     | Defer to post-MVP; test during spike                               |
 
 ---
 

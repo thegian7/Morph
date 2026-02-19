@@ -125,26 +125,26 @@ System Tray / Settings Window
 
 ### Rust Backend Owns
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| Window Manager | `src-tauri/src/window_manager/` | Platform-specific overlay config (NSWindowLevel, WS_EX_TOPMOST) |
-| Calendar Providers | `src-tauri/src/calendar/` | OAuth flows, API calls, token refresh |
-| Calendar Aggregator | `src-tauri/src/calendar/aggregator.rs` | Merge, dedup, sort events from all providers |
-| Polling Service | `src-tauri/src/calendar/poller.rs` | 60s poll loop + 1s tick, runs as Tokio background task |
-| Settings Store | `src-tauri/src/settings.rs` | SQLite read/write via Tauri commands |
-| Timer Backend | `src-tauri/src/timer.rs` | Timer state, persistence, synthetic event generation |
-| System Tray | `src-tauri/src/tray.rs` | Menu bar (macOS) / system tray (Windows) |
-| Tauri Commands | `src-tauri/src/commands/` | All frontend ↔ backend IPC |
+| Component           | Location                               | Purpose                                                         |
+| ------------------- | -------------------------------------- | --------------------------------------------------------------- |
+| Window Manager      | `src-tauri/src/window_manager/`        | Platform-specific overlay config (NSWindowLevel, WS_EX_TOPMOST) |
+| Calendar Providers  | `src-tauri/src/calendar/`              | OAuth flows, API calls, token refresh                           |
+| Calendar Aggregator | `src-tauri/src/calendar/aggregator.rs` | Merge, dedup, sort events from all providers                    |
+| Polling Service     | `src-tauri/src/calendar/poller.rs`     | 60s poll loop + 1s tick, runs as Tokio background task          |
+| Settings Store      | `src-tauri/src/settings.rs`            | SQLite read/write via Tauri commands                            |
+| Timer Backend       | `src-tauri/src/timer.rs`               | Timer state, persistence, synthetic event generation            |
+| System Tray         | `src-tauri/src/tray.rs`                | Menu bar (macOS) / system tray (Windows)                        |
+| Tauri Commands      | `src-tauri/src/commands/`              | All frontend ↔ backend IPC                                      |
 
 ### TypeScript Frontend Owns
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| Color Engine | `src/lib/color-engine/` | Pure TS: getBorderState() + types + palettes |
-| Manual Timer UI | `src/lib/timer/` | Timer state machine (TS), feeds synthetic events to color engine |
-| Overlay Window | `src/overlay/` | Renders border strips, applies BorderState via CSS |
-| Settings Window | `src/settings/` | React UI for all settings sections |
-| Shared Types | `src/lib/types/` | CalendarEvent, BorderState, Phase, UserSettings |
+| Component       | Location                | Purpose                                                          |
+| --------------- | ----------------------- | ---------------------------------------------------------------- |
+| Color Engine    | `src/lib/color-engine/` | Pure TS: getBorderState() + types + palettes                     |
+| Manual Timer UI | `src/lib/timer/`        | Timer state machine (TS), feeds synthetic events to color engine |
+| Overlay Window  | `src/overlay/`          | Renders border strips, applies BorderState via CSS               |
+| Settings Window | `src/settings/`         | React UI for all settings sections                               |
+| Shared Types    | `src/lib/types/`        | CalendarEvent, BorderState, Phase, UserSettings                  |
 
 ### Shared Interfaces
 
@@ -170,8 +170,8 @@ pub struct CalendarEvent {
 export interface CalendarEvent {
   id: string;
   title: string;
-  startTime: string;   // ISO 8601
-  endTime: string;     // ISO 8601
+  startTime: string; // ISO 8601
+  endTime: string; // ISO 8601
   ignored: boolean;
   calendarId?: string;
   providerId: string;
@@ -204,11 +204,11 @@ User clicks "Upgrade" in Settings
 
 ### Cloudflare Workers Endpoints
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/create-checkout-session` | POST | Creates Stripe Checkout Session with subscription price, returns URL |
-| `/stripe-webhook` | POST | Receives Stripe events (checkout.session.completed, customer.subscription.updated/deleted) |
-| `/check-license` | GET | App calls on launch + every 24h to verify subscription status |
+| Endpoint                   | Method | Purpose                                                                                    |
+| -------------------------- | ------ | ------------------------------------------------------------------------------------------ |
+| `/create-checkout-session` | POST   | Creates Stripe Checkout Session with subscription price, returns URL                       |
+| `/stripe-webhook`          | POST   | Receives Stripe events (checkout.session.completed, customer.subscription.updated/deleted) |
+| `/check-license`           | GET    | App calls on launch + every 24h to verify subscription status                              |
 
 ### D1 Schema
 
@@ -235,10 +235,10 @@ CREATE TABLE subscriptions (
 
 ### Stripe Products
 
-| Product | Price ID | Amount |
-|---------|----------|--------|
+| Product                 | Price ID        | Amount   |
+| ----------------------- | --------------- | -------- |
 | LightTime Pro (Monthly) | Created in BL-1 | $7/month |
-| LightTime Pro (Annual) | Created in BL-1 | $56/year |
+| LightTime Pro (Annual)  | Created in BL-1 | $56/year |
 
 ---
 
@@ -308,32 +308,32 @@ CREATE TABLE schema_version (
 
 ## Key Architecture Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Overlay architecture | **TBD by TS-4 spike** | Four-window recommended by technical analysis, but spike must validate |
-| Color engine language | **TypeScript** | Pure module, fully testable, runs in overlay window |
-| Color engine tick | **1-second interval in TS**, triggered by Rust "tick" event | Keeps color engine pure; Rust just provides the clock |
-| State management | **Zustand** (settings window only) | Overlay is too simple for a state library — direct event-driven updates |
-| Frontend framework | **React + Tailwind CSS** | As specified in PRD |
-| Bundler | **Vite** | Tauri 2 default, pairs with Vitest |
-| Testing (TS) | **Vitest** | Fast, zero-config with Vite, ESM-native |
-| Testing (Rust) | **cargo test** (built-in) | Standard Rust testing |
-| CI/CD | **GitHub Actions** | Tauri has official GH Actions templates; good macOS/Windows runner support |
-| Token storage | **OS Keychain via `keyring` crate** | Cross-platform: macOS Keychain, Windows Credential Manager |
-| Local database | **SQLite via tauri-plugin-sql** | Lightweight, embedded, no server needed |
-| Payment | **Stripe Checkout (hosted)** | User clicks Upgrade → browser opens Stripe-hosted payment page |
-| Billing backend | **Cloudflare Workers + D1** | 3 serverless endpoints, D1 (SQLite) for subscriptions |
-| License model | **Server-verified with local cache** | Check on launch + every 24h, 7-day grace period |
-| Distribution | **Direct download + notarization** | Mac App Store deferred (sandbox conflicts with overlay) |
+| Decision              | Choice                                                      | Rationale                                                                  |
+| --------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Overlay architecture  | **TBD by TS-4 spike**                                       | Four-window recommended by technical analysis, but spike must validate     |
+| Color engine language | **TypeScript**                                              | Pure module, fully testable, runs in overlay window                        |
+| Color engine tick     | **1-second interval in TS**, triggered by Rust "tick" event | Keeps color engine pure; Rust just provides the clock                      |
+| State management      | **Zustand** (settings window only)                          | Overlay is too simple for a state library — direct event-driven updates    |
+| Frontend framework    | **React + Tailwind CSS**                                    | As specified in PRD                                                        |
+| Bundler               | **Vite**                                                    | Tauri 2 default, pairs with Vitest                                         |
+| Testing (TS)          | **Vitest**                                                  | Fast, zero-config with Vite, ESM-native                                    |
+| Testing (Rust)        | **cargo test** (built-in)                                   | Standard Rust testing                                                      |
+| CI/CD                 | **GitHub Actions**                                          | Tauri has official GH Actions templates; good macOS/Windows runner support |
+| Token storage         | **OS Keychain via `keyring` crate**                         | Cross-platform: macOS Keychain, Windows Credential Manager                 |
+| Local database        | **SQLite via tauri-plugin-sql**                             | Lightweight, embedded, no server needed                                    |
+| Payment               | **Stripe Checkout (hosted)**                                | User clicks Upgrade → browser opens Stripe-hosted payment page             |
+| Billing backend       | **Cloudflare Workers + D1**                                 | 3 serverless endpoints, D1 (SQLite) for subscriptions                      |
+| License model         | **Server-verified with local cache**                        | Check on launch + every 24h, 7-day grace period                            |
+| Distribution          | **Direct download + notarization**                          | Mac App Store deferred (sandbox conflicts with overlay)                    |
 
 ---
 
 ## Open Questions (Resolved by Spikes)
 
-| Question | Resolved By | Impact If Wrong |
-|----------|-------------|-----------------|
-| Does click-through work on Windows? | TS-2 | Need native WS_EX_TRANSPARENT fallback |
-| Can overlay appear above macOS fullscreen apps? | TS-3 | Core feature degraded |
-| Four windows or one fullscreen window? | TS-4 | Affects all overlay code |
-| Does Google OAuth PKCE work in Tauri? | TS-5 | May need different auth approach |
-| Does Microsoft Graph OAuth work without MSAL? | TS-6 | May need to defer MS support |
+| Question                                        | Resolved By | Impact If Wrong                        |
+| ----------------------------------------------- | ----------- | -------------------------------------- |
+| Does click-through work on Windows?             | TS-2        | Need native WS_EX_TRANSPARENT fallback |
+| Can overlay appear above macOS fullscreen apps? | TS-3        | Core feature degraded                  |
+| Four windows or one fullscreen window?          | TS-4        | Affects all overlay code               |
+| Does Google OAuth PKCE work in Tauri?           | TS-5        | May need different auth approach       |
+| Does Microsoft Graph OAuth work without MSAL?   | TS-6        | May need to defer MS support           |

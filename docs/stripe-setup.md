@@ -9,10 +9,10 @@
 
 LightTime uses Stripe for subscription billing with two plans:
 
-| Plan | Price | Billing | Savings |
-|------|-------|---------|---------|
-| LightTime Pro Monthly | $7/month | Recurring | — |
-| LightTime Pro Annual | $56/year | Recurring | ~33% vs monthly |
+| Plan                  | Price    | Billing   | Savings         |
+| --------------------- | -------- | --------- | --------------- |
+| LightTime Pro Monthly | $7/month | Recurring | —               |
+| LightTime Pro Annual  | $56/year | Recurring | ~33% vs monthly |
 
 Payments are handled entirely by Stripe Checkout (hosted). The app opens a browser to the Stripe-hosted payment page — no credit card fields are rendered inside the app.
 
@@ -123,11 +123,11 @@ Navigate to **Developers > API keys** in the Stripe Dashboard.
 
 ### Keys Required
 
-| Key | Environment Variable | Where Used | Description |
-|-----|---------------------|------------|-------------|
-| Secret key (`sk_test_...` / `sk_live_...`) | `STRIPE_SECRET_KEY` | Cloudflare Worker | Server-side API calls (create checkout sessions, verify webhooks) |
-| Publishable key (`pk_test_...` / `pk_live_...`) | Not used server-side | Not used | Only needed if embedding Stripe.js in frontend (we use hosted Checkout) |
-| Webhook signing secret (`whsec_...`) | `STRIPE_WEBHOOK_SECRET` | Cloudflare Worker | Verify webhook signatures |
+| Key                                             | Environment Variable    | Where Used        | Description                                                             |
+| ----------------------------------------------- | ----------------------- | ----------------- | ----------------------------------------------------------------------- |
+| Secret key (`sk_test_...` / `sk_live_...`)      | `STRIPE_SECRET_KEY`     | Cloudflare Worker | Server-side API calls (create checkout sessions, verify webhooks)       |
+| Publishable key (`pk_test_...` / `pk_live_...`) | Not used server-side    | Not used          | Only needed if embedding Stripe.js in frontend (we use hosted Checkout) |
+| Webhook signing secret (`whsec_...`)            | `STRIPE_WEBHOOK_SECRET` | Cloudflare Worker | Verify webhook signatures                                               |
 
 ### Environment Variable Summary
 
@@ -156,14 +156,14 @@ npx wrangler secret put STRIPE_ANNUAL_PRICE_ID
 
 ## 6. Test Mode vs Production Mode
 
-| Aspect | Test Mode | Production Mode |
-|--------|-----------|-----------------|
-| API keys | `sk_test_...` / `pk_test_...` | `sk_live_...` / `pk_live_...` |
-| Charges | No real money charged | Real charges |
-| Webhook secrets | Separate per mode | Separate per mode |
-| Test card numbers | `4242 4242 4242 4242` (success), `4000 0000 0000 0002` (decline) | Real cards only |
-| Customer data | Separate from production | Real customer data |
-| Dashboard toggle | "Test mode" switch (top-right) | Default view |
+| Aspect            | Test Mode                                                        | Production Mode               |
+| ----------------- | ---------------------------------------------------------------- | ----------------------------- |
+| API keys          | `sk_test_...` / `pk_test_...`                                    | `sk_live_...` / `pk_live_...` |
+| Charges           | No real money charged                                            | Real charges                  |
+| Webhook secrets   | Separate per mode                                                | Separate per mode             |
+| Test card numbers | `4242 4242 4242 4242` (success), `4000 0000 0000 0002` (decline) | Real cards only               |
+| Customer data     | Separate from production                                         | Real customer data            |
+| Dashboard toggle  | "Test mode" switch (top-right)                                   | Default view                  |
 
 ### Testing Checklist
 

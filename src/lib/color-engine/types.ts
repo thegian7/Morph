@@ -25,8 +25,8 @@ export type Phase =
 export interface CalendarEvent {
   id: string;
   title: string;
-  startTime: string;   // ISO 8601
-  endTime: string;     // ISO 8601
+  startTime: string; // ISO 8601
+  endTime: string; // ISO 8601
   ignored: boolean;
   calendarId?: string;
   providerId: string;
@@ -38,9 +38,9 @@ export interface CalendarEvent {
  * Consumed by the overlay renderer to apply CSS styles.
  */
 export interface BorderState {
-  color: string;        // hex (e.g. "#4A9B6E")
-  opacity: number;      // 0–1
-  pulseSpeed: number;   // ms per cycle, 0 = no pulse
+  color: string; // hex (e.g. "#4A9B6E")
+  opacity: number; // 0–1
+  pulseSpeed: number; // ms per cycle, 0 = no pulse
   phase: Phase;
 }
 
@@ -48,7 +48,7 @@ export interface BorderState {
 export interface PaletteEntry {
   hex: string;
   opacity: number;
-  pulseSpeed: number;   // 0 = no pulse
+  pulseSpeed: number; // 0 = no pulse
 }
 
 /** A complete palette mapping every phase to its visual style. */
