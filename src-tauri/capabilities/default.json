@@ -1,0 +1,19 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for LightTime",
+  "windows": ["settings", "border-top", "border-bottom", "border-left", "border-right"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-set-ignore-cursor-events",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:event:default",
+    "core:event:allow-listen",
+    "core:event:allow-emit"
+  ]
+}
