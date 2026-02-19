@@ -11,21 +11,26 @@ export type {
   UserSettings,
 } from './types.js';
 
-export {
-  DEFAULT_USER_SETTINGS,
-  INTENSITY_MULTIPLIERS,
-  MAX_OPACITY,
-} from './types.js';
+export { DEFAULT_USER_SETTINGS, INTENSITY_MULTIPLIERS, MAX_OPACITY } from './types.js';
+
+export { AMBIENT_PALETTE, OCEAN_PALETTE, PALETTES } from './palettes.js';
 
 export {
-  AMBIENT_PALETTE,
-  OCEAN_PALETTE,
-  PALETTES,
-} from './palettes.js';
+  parseEvents,
+  resolvePhase,
+  resolvePreSessionPhase,
+  resolveInSessionPhase,
+  resolveGapPhase,
+  buildWarningBoundaries,
+  lerp,
+} from './resolve-phase.js';
+
+export type { ParsedEvent, PhaseResult } from './resolve-phase.js';
 
 import type { CalendarEvent, BorderState, UserSettings } from './types.js';
 import { INTENSITY_MULTIPLIERS, MAX_OPACITY } from './types.js';
 import { PALETTES } from './palettes.js';
+import { parseEvents, resolvePhase, lerp } from './resolve-phase.js';
 
 // ---------------------------------------------------------------------------
 // HSL color interpolation
@@ -117,7 +122,7 @@ export function interpolateHsl(from: string, to: string, t: number): string {
   const clamped = Math.max(0, Math.min(1, t));
 
   return hslToHex({
-    h: ((a.h + dh * clamped) % 360 + 360) % 360,
+    h: (((a.h + dh * clamped) % 360) + 360) % 360,
     s: a.s + (b.s - a.s) * clamped,
     l: a.l + (b.l - a.l) * clamped,
   });
@@ -136,28 +141,40 @@ export function applyIntensity(opacity: number, intensity: UserSettings['intensi
 }
 
 // ---------------------------------------------------------------------------
-// getBorderState — stub implementation
+// getBorderState
 // ---------------------------------------------------------------------------
 
 /**
  * Compute the current border visual state from calendar events, current time,
  * and user settings.
  *
- * This is a stub that returns the default "no-events" state.
- * Full phase-resolution logic will be implemented in CE-2 through CE-5.
+ * Determines which phase the user is in (free time, warning, in-session,
+ * gap, overtime, or no-events), then interpolates color/opacity/pulse
+ * between adjacent phase palette entries for smooth transitions.
  */
 export function getBorderState(
-  _events: CalendarEvent[],
-  _now: Date,
+  events: CalendarEvent[],
+  now: Date,
   settings: UserSettings,
 ): BorderState {
   const palette = PALETTES[settings.palette];
-  const entry = palette['no-events'];
+  const parsed = parseEvents(events);
+  const { fromPhase, toPhase, t } = resolvePhase(parsed, now, settings);
 
+  const from = palette[fromPhase];
+  const to = palette[toPhase];
+
+  const color = fromPhase === toPhase ? from.hex : interpolateHsl(from.hex, to.hex, t);
+  const opacity = fromPhase === toPhase ? from.opacity : lerp(from.opacity, to.opacity, t);
+  const pulseSpeed =
+    fromPhase === toPhase ? from.pulseSpeed : Math.round(lerp(from.pulseSpeed, to.pulseSpeed, t));
+
+  // The "current" phase is the fromPhase (the zone we're in).
+  // Once t crosses 1.0 the resolver moves us to the next zone.
   return {
-    color: entry.hex,
-    opacity: applyIntensity(entry.opacity, settings.intensity),
-    pulseSpeed: entry.pulseSpeed,
-    phase: 'no-events',
+    color,
+    opacity: applyIntensity(opacity, settings.intensity),
+    pulseSpeed,
+    phase: fromPhase,
   };
 }
