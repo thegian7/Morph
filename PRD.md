@@ -1,4 +1,5 @@
 # Product Requirements Document
+
 ## [App Name TBD] — Ambient Screen Border Timer
 
 **Version:** 0.1 (Draft)
@@ -29,12 +30,15 @@ Your screen becomes environmentally time-aware. You always know, without thinkin
 ## 3. Target Users
 
 ### Primary: General Knowledge Workers
+
 People who live in calendars, take back-to-back meetings, and struggle with transitions. They want fewer surprises and smoother context switching. They are productivity-motivated and willing to pay for tools that help them work better.
 
 ### Core Community: AUDHD / ADHD / Autism
+
 People with diagnosable time blindness who find conventional timers and notifications destabilizing. They are vocal, community-driven, and evangelize tools that genuinely understand them. This group drives organic growth and defines the emotional truth of the product.
 
 ### Secondary: Therapists & Coaches
+
 Professionals who run back-to-back sessions and currently rely on expensive devices like the Timeqube Mind. They have clear willingness to pay and a professional use case that justifies a subscription.
 
 ---
@@ -62,21 +66,21 @@ The border has no text, no numbers, no icons. Only color.
 
 The border reflects your position in time using a continuous state machine. Color transitions are deliberately slow — measured in minutes, not seconds — so changes are absorbed subconsciously rather than consciously noticed.
 
-| State | Color | Hex | Opacity | Pulse | Behavior |
-|-------|-------|-----|---------|-------|----------|
-| Deep free time (60+ min) | Soft green | `#4A9B6E` | 0.25 | — | Calm, nearly invisible. You have space. |
-| Approaching (30 min out) | Brighter green | `#5BAE7A` | 0.40 | 4000ms | Subconscious nudge. Something is coming. |
-| Approaching (15 min out) | Yellow-green | `#A3B84C` | 0.55 | 3000ms | Pulse quickens slightly. Body starts preparing. |
-| Approaching (5 min out) | Warm amber | `#D4A843` | 0.70 | 2000ms | Clear signal to start wrapping up. |
-| Approaching (2 min out) | Orange | `#D4864A` | 0.80 | 1500ms | Transition is imminent. |
-| In session — early (0–40%) | Green | `#4A9B6E` | 0.35 | — | Plenty of time. Settle in. |
-| In session — mid (40–70%) | Yellow | `#B8AD42` | 0.50 | — | Time is moving. Awareness builds. |
-| In session — late (70–90%) | Orange | `#D4864A` | 0.65 | — | Start thinking about wrapping up. |
-| In session — final (90–100%) | Soft purple | `#8B6AAE` | 0.75 | 2500ms | Approaching the end. |
-| Session overtime | Deep purple | `#7B5A9E` | 0.80 | 2000ms | Time is up. Not an alarm — a presence. |
-| Short gap (< 10 min) | Orange | `#D4864A` | 0.60 | 2500ms | Gap is tight, stay alert. |
-| Long gap (10+ min) | Green | `#5BAE7A` | 0.30 | — | Breathing room. |
-| No events, open calendar | Dim blue-gray | `#8A9BA8` | 0.15 | — | Environment is calm. Safe to go deep. |
+| State                        | Color          | Hex       | Opacity | Pulse  | Behavior                                        |
+| ---------------------------- | -------------- | --------- | ------- | ------ | ----------------------------------------------- |
+| Deep free time (60+ min)     | Soft green     | `#4A9B6E` | 0.25    | —      | Calm, nearly invisible. You have space.         |
+| Approaching (30 min out)     | Brighter green | `#5BAE7A` | 0.40    | 4000ms | Subconscious nudge. Something is coming.        |
+| Approaching (15 min out)     | Yellow-green   | `#A3B84C` | 0.55    | 3000ms | Pulse quickens slightly. Body starts preparing. |
+| Approaching (5 min out)      | Warm amber     | `#D4A843` | 0.70    | 2000ms | Clear signal to start wrapping up.              |
+| Approaching (2 min out)      | Orange         | `#D4864A` | 0.80    | 1500ms | Transition is imminent.                         |
+| In session — early (0–40%)   | Green          | `#4A9B6E` | 0.35    | —      | Plenty of time. Settle in.                      |
+| In session — mid (40–70%)    | Yellow         | `#B8AD42` | 0.50    | —      | Time is moving. Awareness builds.               |
+| In session — late (70–90%)   | Orange         | `#D4864A` | 0.65    | —      | Start thinking about wrapping up.               |
+| In session — final (90–100%) | Soft purple    | `#8B6AAE` | 0.75    | 2500ms | Approaching the end.                            |
+| Session overtime             | Deep purple    | `#7B5A9E` | 0.80    | 2000ms | Time is up. Not an alarm — a presence.          |
+| Short gap (< 10 min)         | Orange         | `#D4864A` | 0.60    | 2500ms | Gap is tight, stay alert.                       |
+| Long gap (10+ min)           | Green          | `#5BAE7A` | 0.30    | —      | Breathing room.                                 |
+| No events, open calendar     | Dim blue-gray  | `#8A9BA8` | 0.15    | —      | Environment is calm. Safe to go deep.           |
 
 All color transitions use slow easing curves (8–15 seconds per step) to eliminate the startle response. Colors interpolate in **HSL color space** for perceptually smooth transitions. End-of-session uses **soft purple instead of red** — calmer, less triggering, and more colorblind-friendly (inspired by Timeqube's approach).
 
@@ -95,6 +99,7 @@ Users can optionally mark certain calendar events as "ignored" (e.g. all-day eve
 ### 6.1 MVP (v1.0)
 
 #### Core Experience
+
 - Always-on-top transparent screen border overlay (macOS + Windows)
 - Full color state machine across free time, pre-meeting, and in-session states
 - Slow CSS-eased color transitions (no jarring jumps)
@@ -102,6 +107,7 @@ Users can optionally mark certain calendar events as "ignored" (e.g. all-day eve
 - No click interception — purely visual
 
 #### Calendar Integration
+
 - Google Calendar (OAuth2)
 - Apple Calendar (EventKit on macOS)
 - Microsoft Outlook / Microsoft 365 (Microsoft Graph API)
@@ -109,11 +115,13 @@ Users can optionally mark certain calendar events as "ignored" (e.g. all-day eve
 - Configurable event filters (ignore all-day events, specific calendars)
 
 #### Manual Mode
+
 - Set a custom duration timer without calendar
 - Quick presets: 15, 25, 30, 45, 60, 90 minutes
 - Tap/click system tray icon to start/stop manual timer
 
 #### Settings
+
 - Border thickness (thin / medium / thick)
 - Border position (all edges / top only / sides only / bottom only)
 - Color intensity (subtle / normal / vivid)
@@ -122,12 +130,14 @@ Users can optionally mark certain calendar events as "ignored" (e.g. all-day eve
 - Pause / snooze border for N minutes
 
 #### System
+
 - macOS menu bar app
 - Windows system tray app
 - Auto-updater (Tauri updater)
 - Lightweight — no noticeable CPU/memory footprint
 
 ### 6.2 Post-MVP (v1.x)
+
 - Multi-monitor support (border on all screens or selected screen)
 - Custom color themes (including colorblind-accessible palettes)
 - Focus mode: block distractions during in-session state
@@ -143,12 +153,14 @@ Users can optionally mark certain calendar events as "ignored" (e.g. all-day eve
 ## 7. Monetization
 
 ### Free Tier
+
 - Manual timers only
 - Single color theme
 - No calendar integration
 - Limited to standard warning windows (5 min and 2 min only)
 
 ### Pro — $7/month or $56/year (~33% savings)
+
 - Full calendar integration (Google, Apple, Outlook)
 - All pre-meeting warning windows (30, 15, 5, 2 min — configurable)
 - Custom color intensity and border thickness
@@ -163,6 +175,7 @@ Users can optionally mark certain calendar events as "ignored" (e.g. all-day eve
 ## 8. Technical Architecture
 
 ### Stack
+
 - **Framework:** Tauri 2 (Rust shell, TypeScript/React frontend)
 - **Frontend:** React + Tailwind CSS
 - **State management:** Zustand
@@ -181,18 +194,18 @@ A pure TypeScript module — no UI dependencies — that takes calendar state as
 
 ```typescript
 interface CalendarEvent {
-  id: string
-  title: string
-  startTime: Date
-  endTime: Date
-  ignored: boolean
+  id: string;
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  ignored: boolean;
 }
 
 interface BorderState {
-  color: string        // hex
-  opacity: number      // 0–1
-  pulseSpeed: number   // ms per cycle, 0 = no pulse
-  phase: Phase
+  color: string; // hex
+  opacity: number; // 0–1
+  pulseSpeed: number; // ms per cycle, 0 = no pulse
+  phase: Phase;
 }
 
 type Phase =
@@ -206,13 +219,9 @@ type Phase =
   | 'in-session-late'
   | 'in-session-end'
   | 'gap-short'
-  | 'gap-long'
+  | 'gap-long';
 
-function getBorderState(
-  events: CalendarEvent[],
-  now: Date,
-  settings: UserSettings
-): BorderState
+function getBorderState(events: CalendarEvent[], now: Date, settings: UserSettings): BorderState;
 ```
 
 ### Calendar Polling
@@ -224,17 +233,20 @@ Calendar events are fetched on a 60-second poll interval. Local state is maintai
 ## 9. Go-To-Market
 
 ### Phase 1: Community Launch
+
 - Post in r/ADHD, r/autism, r/AuDHD, r/productivity with a genuine story about the Timeqube and why this exists
 - Product Hunt launch
 - Target ADHD/neurodivergent creators on TikTok and YouTube who review productivity tools
 - Free tier drives trial with zero friction
 
 ### Phase 2: Therapist & Coach Channel
+
 - Reach out to therapy communities (therapy-related subreddits, Psychology Today forums)
 - Position as the software alternative to Timeqube Mind for practitioners who already own smart displays or just want a solution on their laptop
 - Consider a "practice license" pricing tier for multi-seat therapy offices
 
 ### Phase 3: Broader Knowledge Worker Push
+
 - SEO content around "time blindness," "ADHD productivity," "ambient timer"
 - App Store optimization once listed
 - Integration partnerships (Notion, Fantastical, etc.)
@@ -243,13 +255,13 @@ Calendar events are fetched on a 60-second poll interval. Local state is maintai
 
 ## 10. Success Metrics
 
-| Metric | 30 days | 90 days | 12 months |
-|--------|---------|---------|-----------|
-| Downloads | 500 | 2,500 | 15,000 |
-| Free → Pro conversion | — | 8% | 12% |
-| Monthly churn (Pro) | — | <8% | <5% |
-| MRR | — | $1,400 | $10,000+ |
-| App Store rating | — | 4.2+ | 4.5+ |
+| Metric                | 30 days | 90 days | 12 months |
+| --------------------- | ------- | ------- | --------- |
+| Downloads             | 500     | 2,500   | 15,000    |
+| Free → Pro conversion | —       | 8%      | 12%       |
+| Monthly churn (Pro)   | —       | <8%     | <5%       |
+| MRR                   | —       | $1,400  | $10,000+  |
+| App Store rating      | —       | 4.2+    | 4.5+      |
 
 ---
 
@@ -275,4 +287,4 @@ Calendar events are fetched on a 60-second poll interval. Local state is maintai
 
 ---
 
-*This document is a living draft. All estimates and decisions are subject to revision based on technical spikes, user research, and market validation.*
+_This document is a living draft. All estimates and decisions are subject to revision based on technical spikes, user research, and market validation._
