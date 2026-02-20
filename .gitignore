@@ -4,3 +4,4 @@ target/
 coverage/
 *.tsbuildinfo
 .DS_Store
+.locks/
