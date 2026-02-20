@@ -11,6 +11,14 @@ export interface TimerState {
   elapsedBeforePause: number;
 }
 
+/** A reusable timer preset with a pre-configured duration. */
+export interface TimerPreset {
+  id: string;
+  name: string;
+  durationSeconds: number;
+  color?: string;
+}
+
 /** Actions that can be dispatched to the timer state machine. */
 export type TimerAction =
   | { type: 'start'; durationSeconds: number; now: string }

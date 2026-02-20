@@ -1,7 +1,13 @@
 import type { CalendarEvent } from '@/lib/color-engine/types';
 import type { TimerState } from './types';
 
-export type { TimerState, TimerAction, TimerStatus } from './types';
+export type { TimerState, TimerAction, TimerStatus, TimerPreset } from './types';
+export {
+  getDefaultPresets,
+  createPreset,
+  startTimerFromPreset,
+  validatePreset,
+} from './presets';
 
 // ---------------------------------------------------------------------------
 // Factory
