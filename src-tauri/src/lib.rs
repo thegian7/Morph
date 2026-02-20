@@ -1,11 +1,16 @@
+pub mod border_state;
 pub mod calendar;
 pub mod settings;
+pub mod tick;
 pub mod window_manager;
 
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::webview::WebviewWindowBuilder;
-use tauri::WebviewUrl;
+use tauri::{Emitter, Manager, WebviewUrl};
 use tauri_plugin_sql::{Migration, MigrationKind};
+
+use border_state::BorderState;
 
 #[cfg(target_os = "macos")]
 use window_manager::macos::MacOSOverlayManager;
@@ -64,6 +69,20 @@ fn create_border_windows(app: &tauri::AppHandle) -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
+/// Manually emit a border state update. Useful for testing and debugging.
+/// Updates the shared state so the tick emitter picks up the change.
+#[tauri::command]
+fn emit_border_state(app: tauri::AppHandle, state: BorderState) -> Result<(), String> {
+    // Update the shared state so the tick emitter will continue emitting this state
+    let managed = app.state::<Mutex<BorderState>>();
+    {
+        let mut current = managed.lock().map_err(|e| e.to_string())?;
+        *current = state.clone();
+    }
+    app.emit("border-state-update", &state)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let migrations = vec![Migration {
@@ -74,6 +93,7 @@ pub fn run() {
     }];
 
     tauri::Builder::default()
+        .manage(Mutex::new(BorderState::default()))
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:lighttime.db", migrations)
@@ -83,6 +103,7 @@ pub fn run() {
             settings::get_setting,
             settings::set_setting,
             settings::get_all_settings,
+            emit_border_state,
         ])
         .setup(|app| {
             // Create border overlay windows dynamically
@@ -102,6 +123,9 @@ pub fn run() {
                     overlay_mgr.show();
                 }
             }
+
+            // Start the 1-second tick emitter for border state updates
+            tick::start_tick_emitter(app.handle().clone());
 
             Ok(())
         })
