@@ -1,4 +1,9 @@
 pub mod aggregator;
+#[cfg(target_os = "macos")]
+pub mod apple;
 pub mod error;
+pub mod google;
+pub mod microsoft;
+pub mod poller;
 pub mod provider;
 pub mod types;
