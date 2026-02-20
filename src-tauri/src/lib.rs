@@ -5,10 +5,8 @@ pub mod tick;
 pub mod tray;
 pub mod window_manager;
 
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tauri::webview::WebviewWindowBuilder;
-use tauri::{Emitter, Manager, WebviewUrl};
+use tauri::{Emitter, Manager, RunEvent};
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 use calendar::aggregator::CalendarAggregator;
@@ -23,55 +21,6 @@ use window_manager::OverlayManager;
 
 /// Default border thickness in logical pixels.
 const DEFAULT_THICKNESS: f64 = 6.0;
-
-/// Create the four border overlay windows dynamically during app setup.
-///
-/// Windows are created hidden and transparent. Platform-specific
-/// configuration (window level, click-through) is applied by the
-/// OverlayManager implementations in OE-3 / OE-4.
-fn create_border_windows(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let thickness = DEFAULT_THICKNESS;
-
-    // Border window definitions: (label, x, y, w, h) using placeholder dimensions.
-    // Platform window managers will reposition these using actual screen dimensions.
-    let borders: [(&str, f64, f64, f64, f64); 4] = [
-        ("border-top", 0.0, 0.0, 1920.0, thickness),
-        ("border-bottom", 0.0, 1080.0 - thickness, 1920.0, thickness),
-        (
-            "border-left",
-            0.0,
-            thickness,
-            thickness,
-            1080.0 - 2.0 * thickness,
-        ),
-        (
-            "border-right",
-            1920.0 - thickness,
-            thickness,
-            thickness,
-            1080.0 - 2.0 * thickness,
-        ),
-    ];
-
-    // All border windows load the overlay HTML entry point
-    let overlay_url = WebviewUrl::App(PathBuf::from("src/overlay/index.html"));
-
-    for (label, x, y, w, h) in borders {
-        WebviewWindowBuilder::new(app, label, overlay_url.clone())
-            .title("")
-            .transparent(true)
-            .decorations(false)
-            .skip_taskbar(true)
-            .resizable(false)
-            .visible(false)
-            .inner_size(w, h)
-            .position(x, y)
-            .always_on_top(true)
-            .build()?;
-    }
-
-    Ok(())
-}
 
 /// Manually emit a border state update. Useful for testing and debugging.
 /// Updates the shared state so the tick emitter picks up the change.
@@ -113,22 +62,40 @@ pub fn run() {
             emit_border_state,
         ])
         .setup(|app| {
-            // Create border overlay windows dynamically
-            if let Err(e) = create_border_windows(app.handle()) {
-                eprintln!("Failed to create border windows: {}", e);
-            }
-
-            // Apply platform-specific overlay configuration (macOS)
+            // Border overlay windows are declared in tauri.conf.json.
+            // Show them first so the webview loads and JS initializes,
+            // then apply macOS NSWindow config after a delay.
+            // (Applying NSWindow config before webview load kills JS execution.)
             #[cfg(target_os = "macos")]
             {
-                let mut overlay_mgr = MacOSOverlayManager::new();
-                if let Err(e) = overlay_mgr.create_overlay_windows(app.handle()) {
-                    eprintln!("Failed to configure macOS overlay: {e}");
-                } else {
-                    // Position borders on the main screen with default thickness
-                    overlay_mgr.set_thickness(DEFAULT_THICKNESS);
-                    overlay_mgr.show();
+                // Show windows immediately so webview can load
+                for label in ["border-top", "border-bottom", "border-left", "border-right"] {
+                    if let Some(w) = app.get_webview_window(label) {
+                        if let Err(e) = w.show() {
+                            eprintln!("Failed to show '{label}': {e}");
+                        }
+                    }
                 }
+
+                // Apply NSWindow overlay config after webview has loaded
+                let handle = app.handle().clone();
+                let thickness = DEFAULT_THICKNESS;
+                tauri::async_runtime::spawn(async move {
+                    // Give webviews time to load HTML and initialize JS
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+                    // NSWindow ops must run on the main thread
+                    let handle2 = handle.clone();
+                    let _ = handle.run_on_main_thread(move || {
+                        let mut overlay_mgr = MacOSOverlayManager::new();
+                        if let Err(e) = overlay_mgr.create_overlay_windows(&handle2) {
+                            eprintln!("Failed to configure macOS overlay: {e}");
+                        } else {
+                            overlay_mgr.set_thickness(thickness);
+                            // Don't call show() again — windows are already visible
+                        }
+                    });
+                });
             }
 
             // Set up system tray / menu bar icon
@@ -145,6 +112,13 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            // Prevent the app from exiting when all windows are hidden/closed.
+            // The system tray keeps the app alive.
+            if let RunEvent::ExitRequested { api, .. } = event {
+                api.prevent_exit();
+            }
+        });
 }

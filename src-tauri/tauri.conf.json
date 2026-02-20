@@ -34,6 +34,62 @@
         "visible": false,
         "decorations": true,
         "resizable": true
+      },
+      {
+        "label": "border-top",
+        "url": "src/overlay/index.html",
+        "width": 1920,
+        "height": 6,
+        "x": 0,
+        "y": 0,
+        "visible": false,
+        "transparent": true,
+        "decorations": false,
+        "skipTaskbar": true,
+        "resizable": false,
+        "alwaysOnTop": true
+      },
+      {
+        "label": "border-bottom",
+        "url": "src/overlay/index.html",
+        "width": 1920,
+        "height": 6,
+        "x": 0,
+        "y": 1074,
+        "visible": false,
+        "transparent": true,
+        "decorations": false,
+        "skipTaskbar": true,
+        "resizable": false,
+        "alwaysOnTop": true
+      },
+      {
+        "label": "border-left",
+        "url": "src/overlay/index.html",
+        "width": 6,
+        "height": 1068,
+        "x": 0,
+        "y": 6,
+        "visible": false,
+        "transparent": true,
+        "decorations": false,
+        "skipTaskbar": true,
+        "resizable": false,
+        "alwaysOnTop": true
+      },
+      {
+        "label": "border-right",
+        "url": "src/overlay/index.html",
+        "width": 6,
+        "height": 1068,
+        "x": 1914,
+        "y": 6,
+        "visible": false,
+        "transparent": true,
+        "decorations": false,
+        "skipTaskbar": true,
+        "resizable": false,
+        "alwaysOnTop": true
       }
     ]
   }
