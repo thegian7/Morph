@@ -2,13 +2,17 @@ pub mod border_state;
 pub mod calendar;
 pub mod settings;
 pub mod tick;
+pub mod tray;
 pub mod window_manager;
 
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::webview::WebviewWindowBuilder;
 use tauri::{Emitter, Manager, WebviewUrl};
 use tauri_plugin_sql::{Migration, MigrationKind};
+
+use calendar::aggregator::CalendarAggregator;
+use calendar::poller::CalendarPoller;
 
 use border_state::BorderState;
 
@@ -92,8 +96,11 @@ pub fn run() {
         kind: MigrationKind::Up,
     }];
 
+    let aggregator = Arc::new(tokio::sync::Mutex::new(CalendarAggregator::new()));
+
     tauri::Builder::default()
         .manage(Mutex::new(BorderState::default()))
+        .manage(aggregator.clone())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:lighttime.db", migrations)
@@ -124,8 +131,17 @@ pub fn run() {
                 }
             }
 
+            // Set up system tray / menu bar icon
+            if let Err(e) = tray::setup_tray(app) {
+                eprintln!("Failed to set up system tray: {e}");
+            }
+
             // Start the 1-second tick emitter for border state updates
             tick::start_tick_emitter(app.handle().clone());
+
+            // Start the calendar polling service
+            let agg = app.state::<Arc<tokio::sync::Mutex<CalendarAggregator>>>();
+            CalendarPoller::start(app.handle().clone(), agg.inner().clone());
 
             Ok(())
         })
