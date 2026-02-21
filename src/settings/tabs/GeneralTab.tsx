@@ -1,16 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
 import { useSettings } from '../hooks/useSettings';
+
+interface MonitorInfo {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  is_primary: boolean;
+}
 
 const PAUSE_DURATIONS = [5, 15, 30, 60] as const;
 
 export default function GeneralTab() {
   const { getSetting, setSetting } = useSettings();
   const launchAtLogin = getSetting('launch_at_login') === 'true';
+  const selectedDisplay = getSetting('selected_display') ?? 'primary';
+  const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
   const [pauseState, setPauseState] = useState<{ paused: boolean; minutes?: number }>({
     paused: false,
   });
   const [showDurations, setShowDurations] = useState(false);
+
+  useEffect(() => {
+    invoke<MonitorInfo[]>('get_available_monitors')
+      .then(setMonitors)
+      .catch((err) => console.error('Failed to get monitors:', err));
+  }, []);
 
   function handleToggleLaunch() {
     setSetting('launch_at_login', launchAtLogin ? 'false' : 'true');
@@ -65,6 +84,40 @@ export default function GeneralTab() {
         </div>
       </section>
 
+      {/* Display Selection — only shown with multiple monitors */}
+      {monitors.length > 1 && (
+        <section>
+          <p className="text-sm font-medium text-gray-900 mb-2">Display</p>
+          <p className="text-sm text-gray-500 mb-3">Choose which monitor shows the border overlay.</p>
+          <div className="flex flex-wrap gap-3">
+            {monitors.map((monitor) => {
+              const isSelected = selectedDisplay === monitor.id;
+              const selectedClasses = 'ring-2 ring-blue-500 border-blue-500 bg-blue-50';
+              const unselectedClasses = 'border-gray-200 hover:border-gray-300';
+              return (
+                <button
+                  key={monitor.id}
+                  onClick={() => setSetting('selected_display', monitor.id)}
+                  className={`flex flex-col items-start px-4 py-2 rounded-lg border text-sm ${
+                    isSelected ? selectedClasses : unselectedClasses
+                  }`}
+                >
+                  <span className="font-medium">
+                    {monitor.name}
+                    {monitor.is_primary && (
+                      <span className="ml-1.5 text-xs text-blue-600 font-normal">(Primary)</span>
+                    )}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {Math.round(monitor.width)} &times; {Math.round(monitor.height)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Pause / Snooze */}
       <section>
         <p className="text-sm font-medium text-gray-900 mb-2">Pause Border</p>
@@ -116,13 +169,6 @@ export default function GeneralTab() {
         )}
       </section>
 
-      {/* About */}
-      <section>
-        <p className="text-sm font-medium text-gray-900 mb-1">About</p>
-        <p className="text-sm text-gray-700">LightTime</p>
-        <p className="text-sm text-gray-500">Version 0.1.0</p>
-        <p className="text-sm text-gray-500">Ambient screen border timer</p>
-      </section>
     </div>
   );
 }

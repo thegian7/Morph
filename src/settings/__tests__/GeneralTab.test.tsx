@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import GeneralTab from '../tabs/GeneralTab';
 import { SettingsContext, SettingsContextValue } from '../hooks/useSettings';
+import { invoke } from '@tauri-apps/api/core';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
@@ -12,8 +13,13 @@ vi.mock('@tauri-apps/api/event', () => ({
   emit: vi.fn(),
 }));
 
+const mockInvoke = vi.mocked(invoke);
+
 function renderWithSettings(overrides: Partial<SettingsContextValue> = {}) {
-  const defaultSettings = new Map<string, string>([['launch_at_login', 'false']]);
+  const defaultSettings = new Map<string, string>([
+    ['launch_at_login', 'false'],
+    ['selected_display', 'primary'],
+  ]);
 
   const value: SettingsContextValue = {
     settings: defaultSettings,
@@ -36,6 +42,8 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: invoke returns empty monitors list (single-monitor scenario)
+  mockInvoke.mockResolvedValue([]);
 });
 
 describe('GeneralTab', () => {
@@ -82,15 +90,52 @@ describe('GeneralTab', () => {
     expect(screen.getByText('Until next event')).toBeDefined();
   });
 
-  it('shows version info', () => {
-    renderWithSettings();
-    expect(screen.getByText('Version 0.1.0')).toBeDefined();
-  });
+  // Version and about info were moved to AboutTab (Task 9).
 
-  it('renders about section with app name and version', () => {
-    renderWithSettings();
-    expect(screen.getByText('LightTime')).toBeDefined();
-    expect(screen.getByText('Version 0.1.0')).toBeDefined();
-    expect(screen.getByText('Ambient screen border timer')).toBeDefined();
+  describe('Display Picker', () => {
+    it('does not show display section when only one monitor', async () => {
+      mockInvoke.mockResolvedValue([
+        { id: 'primary', name: 'Built-in Display', width: 1728, height: 1117, x: 0, y: 0, is_primary: true },
+      ]);
+      renderWithSettings();
+
+      // Wait for the invoke to resolve
+      await waitFor(() => {
+        expect(mockInvoke).toHaveBeenCalledWith('get_available_monitors');
+      });
+
+      expect(screen.queryByText('Display')).toBeNull();
+    });
+
+    it('shows display section when multiple monitors are connected', async () => {
+      mockInvoke.mockResolvedValue([
+        { id: 'primary', name: 'Built-in Display', width: 1728, height: 1117, x: 0, y: 0, is_primary: true },
+        { id: 'DELL U2723QE:1728x0', name: 'DELL U2723QE', width: 2560, height: 1440, x: 1728, y: 0, is_primary: false },
+      ]);
+      renderWithSettings();
+
+      await waitFor(() => {
+        expect(screen.getByText('Display')).toBeDefined();
+      });
+
+      expect(screen.getByText('Built-in Display')).toBeDefined();
+      expect(screen.getByText('DELL U2723QE')).toBeDefined();
+      expect(screen.getByText('(Primary)')).toBeDefined();
+    });
+
+    it('calls setSetting when clicking a display button', async () => {
+      mockInvoke.mockResolvedValue([
+        { id: 'primary', name: 'Built-in Display', width: 1728, height: 1117, x: 0, y: 0, is_primary: true },
+        { id: 'DELL U2723QE:1728x0', name: 'DELL U2723QE', width: 2560, height: 1440, x: 1728, y: 0, is_primary: false },
+      ]);
+      const { settingsValue } = renderWithSettings();
+
+      await waitFor(() => {
+        expect(screen.getByText('DELL U2723QE')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByText('DELL U2723QE'));
+      expect(settingsValue.setSetting).toHaveBeenCalledWith('selected_display', 'DELL U2723QE:1728x0');
+    });
   });
 });

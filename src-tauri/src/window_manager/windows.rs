@@ -1,9 +1,10 @@
-use super::{OverlayManager, BORDER_LABELS};
+use super::{MonitorInfo, OverlayManager, BORDER_LABELS};
 use tauri::{Manager, WebviewWindow};
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{BOOL, HWND, LPARAM, RECT, TRUE};
 use windows::Win32::Graphics::Dwm::{DwmExtendFrameIntoClientArea, MARGINS};
 use windows::Win32::Graphics::Gdi::{
-    GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTOPRIMARY,
+    EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, HDC, HMONITOR, MONITORINFO,
+    MONITORINFOEXW, MONITOR_DEFAULTTOPRIMARY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongW, SetWindowLongW, SetWindowPos, GWL_EXSTYLE, HWND_TOPMOST, SWP_FRAMECHANGED,
@@ -13,12 +14,25 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 /// Windows overlay manager using Win32 APIs for TOPMOST,
 /// WS_EX_TRANSPARENT, and WS_EX_LAYERED configuration.
-#[derive(Default)]
 pub struct WindowsOverlayManager {
     pub top: Option<WebviewWindow>,
     pub bottom: Option<WebviewWindow>,
     pub left: Option<WebviewWindow>,
     pub right: Option<WebviewWindow>,
+    /// Which monitor to target: `"primary"` or a device name string.
+    pub target_monitor: String,
+}
+
+impl Default for WindowsOverlayManager {
+    fn default() -> Self {
+        Self {
+            top: None,
+            bottom: None,
+            left: None,
+            right: None,
+            target_monitor: "primary".to_string(),
+        }
+    }
 }
 
 impl WindowsOverlayManager {
@@ -91,6 +105,89 @@ impl WindowsOverlayManager {
             f(window);
         }
     }
+
+    /// Enumerate all connected monitors and return their info.
+    pub fn get_available_monitors() -> Vec<MonitorInfo> {
+        let mut monitors = Vec::new();
+
+        unsafe {
+            // Collect HMONITOR handles via callback
+            let mut hmonitors: Vec<HMONITOR> = Vec::new();
+            let _ = EnumDisplayMonitors(
+                HDC::default(),
+                None,
+                Some(enum_monitor_callback),
+                LPARAM(&mut hmonitors as *mut Vec<HMONITOR> as isize),
+            );
+
+            for hmon in hmonitors {
+                let mut info = MONITORINFOEXW {
+                    monitorInfo: MONITORINFO {
+                        cbSize: std::mem::size_of::<MONITORINFOEXW>() as u32,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                };
+
+                if GetMonitorInfoW(hmon, &mut info as *mut _ as *mut MONITORINFO).as_bool() {
+                    let rect = info.monitorInfo.rcMonitor;
+                    let is_primary = (info.monitorInfo.dwFlags & 1) != 0; // MONITORINFOF_PRIMARY = 1
+
+                    // Convert device name from wide chars
+                    let device_name = String::from_utf16_lossy(
+                        &info.szDevice[..info.szDevice.iter().position(|&c| c == 0).unwrap_or(info.szDevice.len())],
+                    );
+
+                    let id = if is_primary {
+                        "primary".to_string()
+                    } else {
+                        device_name.clone()
+                    };
+
+                    monitors.push(MonitorInfo {
+                        id,
+                        name: device_name,
+                        width: (rect.right - rect.left) as f64,
+                        height: (rect.bottom - rect.top) as f64,
+                        x: rect.left as f64,
+                        y: rect.top as f64,
+                        is_primary,
+                    });
+                }
+            }
+        }
+
+        monitors
+    }
+
+    /// Find the monitor rect for a given ID, falling back to primary.
+    fn get_monitor_rect_for_id(id: &str, fallback_hwnd: HWND) -> (i32, i32, i32, i32) {
+        if id == "primary" {
+            return get_primary_monitor_rect(fallback_hwnd);
+        }
+
+        let monitors = Self::get_available_monitors();
+        for mon in &monitors {
+            if mon.id == id {
+                return (mon.x as i32, mon.y as i32, mon.width as i32, mon.height as i32);
+            }
+        }
+
+        // Fallback to primary if saved monitor not found
+        get_primary_monitor_rect(fallback_hwnd)
+    }
+}
+
+/// Callback for `EnumDisplayMonitors` that collects HMONITOR handles.
+unsafe extern "system" fn enum_monitor_callback(
+    hmonitor: HMONITOR,
+    _hdc: HDC,
+    _lprect: *mut RECT,
+    lparam: LPARAM,
+) -> BOOL {
+    let monitors = &mut *(lparam.0 as *mut Vec<HMONITOR>);
+    monitors.push(hmonitor);
+    TRUE
 }
 
 impl OverlayManager for WindowsOverlayManager {
@@ -208,7 +305,7 @@ impl OverlayManager for WindowsOverlayManager {
         if let Some(window) = any_window {
             match Self::get_hwnd(window) {
                 Ok(hwnd) => {
-                    let (x, y, w, h) = get_primary_monitor_rect(hwnd);
+                    let (x, y, w, h) = Self::get_monitor_rect_for_id(&self.target_monitor, hwnd);
                     self.position_borders(
                         x as f64,
                         y as f64,
@@ -222,6 +319,10 @@ impl OverlayManager for WindowsOverlayManager {
                 }
             }
         }
+    }
+
+    fn set_target_monitor(&mut self, monitor_id: &str) {
+        self.target_monitor = monitor_id.to_string();
     }
 }
 

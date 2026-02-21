@@ -38,7 +38,7 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 
 - Rust: `cd src-tauri && cargo test`
 - TypeScript: `npx vitest run` (from project root)
-- Current totals: 77 Rust + 240 TypeScript = 317 tests
+- Current totals: 83 Rust + 274 TypeScript = 357 tests
 
 ## Key Events
 

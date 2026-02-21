@@ -1,4 +1,4 @@
-use super::OverlayManager;
+use super::{MonitorInfo, OverlayManager};
 use objc2_app_kit::{NSScreen, NSWindow, NSWindowCollectionBehavior, NSWindowLevel};
 use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize};
 use tauri::Manager;
@@ -14,6 +14,8 @@ pub struct MacOSOverlayManager {
     pub bottom: Option<WebviewWindow>,
     pub left: Option<WebviewWindow>,
     pub right: Option<WebviewWindow>,
+    /// Which monitor to target: `"primary"` or a platform-derived ID.
+    pub target_monitor: String,
 }
 
 impl MacOSOverlayManager {
@@ -23,6 +25,7 @@ impl MacOSOverlayManager {
             bottom: None,
             left: None,
             right: None,
+            target_monitor: "primary".to_string(),
         }
     }
 
@@ -65,6 +68,69 @@ impl MacOSOverlayManager {
         let mtm = unsafe { MainThreadMarker::new_unchecked() };
         let screen = NSScreen::mainScreen(mtm)?;
         Some(screen.frame())
+    }
+
+    /// Enumerate all connected monitors and return their info.
+    pub fn get_available_monitors() -> Vec<MonitorInfo> {
+        // SAFETY: Tauri setup and commands run on the main thread.
+        let mtm = unsafe { MainThreadMarker::new_unchecked() };
+        let Some(main_screen) = NSScreen::mainScreen(mtm) else {
+            return vec![];
+        };
+        let main_frame = main_screen.frame();
+
+        let screens = NSScreen::screens(mtm);
+        let mut monitors = Vec::new();
+
+        for screen in screens.iter() {
+            let frame = screen.frame();
+            let is_primary = frame.origin.x == main_frame.origin.x
+                && frame.origin.y == main_frame.origin.y
+                && frame.size.width == main_frame.size.width
+                && frame.size.height == main_frame.size.height;
+
+            let name = screen.localizedName().to_string();
+            let id = if is_primary {
+                "primary".to_string()
+            } else {
+                format!("{}:{}x{}", name, frame.origin.x as i64, frame.origin.y as i64)
+            };
+
+            monitors.push(MonitorInfo {
+                id,
+                name,
+                width: frame.size.width,
+                height: frame.size.height,
+                x: frame.origin.x,
+                y: frame.origin.y,
+                is_primary,
+            });
+        }
+
+        monitors
+    }
+
+    /// Find the screen frame for a given monitor ID, falling back to main screen.
+    fn screen_frame_for_id(id: &str) -> Option<NSRect> {
+        if id == "primary" {
+            return Self::main_screen_frame();
+        }
+
+        // SAFETY: Tauri setup and commands run on the main thread.
+        let mtm = unsafe { MainThreadMarker::new_unchecked() };
+        let screens = NSScreen::screens(mtm);
+
+        for screen in screens.iter() {
+            let frame = screen.frame();
+            let name = screen.localizedName().to_string();
+            let screen_id = format!("{}:{}x{}", name, frame.origin.x as i64, frame.origin.y as i64);
+            if screen_id == id {
+                return Some(frame);
+            }
+        }
+
+        // Fallback to primary if saved monitor not found (e.g., disconnected)
+        Self::main_screen_frame()
     }
 
     /// Set an NSWindow's frame directly using native coordinates.
@@ -212,8 +278,8 @@ impl OverlayManager for MacOSOverlayManager {
     }
 
     fn set_thickness(&self, thickness: f64) {
-        // Get the current main screen frame and reposition with new thickness
-        if let Some(frame) = Self::main_screen_frame() {
+        // Get the target screen frame and reposition with new thickness
+        if let Some(frame) = Self::screen_frame_for_id(&self.target_monitor) {
             self.position_borders(
                 frame.origin.x,
                 frame.origin.y,
@@ -222,7 +288,11 @@ impl OverlayManager for MacOSOverlayManager {
                 thickness,
             );
         } else {
-            eprintln!("Failed to get main screen frame for set_thickness");
+            eprintln!("Failed to get screen frame for set_thickness (target: {})", self.target_monitor);
         }
+    }
+
+    fn set_target_monitor(&mut self, monitor_id: &str) {
+        self.target_monitor = monitor_id.to_string();
     }
 }
