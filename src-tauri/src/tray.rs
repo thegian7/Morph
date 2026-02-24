@@ -83,7 +83,7 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
         }
         "support" => {
             let _ = tauri::async_runtime::spawn(async {
-                let _ = open::that("https://ko-fi.com/christopherledbetter");
+                let _ = open::that("https://ko-fi.com/morphlight");
             });
         }
         "quit" => {

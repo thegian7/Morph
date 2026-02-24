@@ -9,7 +9,7 @@ import CalendarTab from './tabs/CalendarTab';
 import TimerTab from './tabs/TimerTab';
 import AboutTab from './tabs/AboutTab';
 
-const KOFI_URL = 'https://ko-fi.com/christopherledbetter';
+const KOFI_URL = 'https://ko-fi.com/morphlight';
 
 type TabName = 'general' | 'border' | 'calendar' | 'timer' | 'about';
 

@@ -1,6 +1,6 @@
 import { open } from '@tauri-apps/plugin-shell';
 
-const KOFI_URL = 'https://ko-fi.com/christopherledbetter';
+const KOFI_URL = 'https://ko-fi.com/morphlight';
 
 export default function AboutTab() {
   return (
