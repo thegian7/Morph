@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morph — Ambient Time Awareness for Your Screen</title>
+    <meta
+      name="description"
+      content="A subtle, color-changing screen border that connects to your calendar. Built for people with time blindness. Free and open source."
+    >
+    <meta property="og:title" content="Morph — Ambient Time Awareness">
+    <meta
+      property="og:description"
+      content="Your screen already knows what time it is. Now you do too. A color-changing border that connects to your calendar."
+    >
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    >
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: [
+                "Inter",
+                "system-ui",
+                "-apple-system",
+                "BlinkMacSystemFont",
+                "sans-serif",
+              ],
+            },
+            colors: {
+              morph: {
+                green: "#4A9B6E",
+                "soft-green": "#5BAE7A",
+                "yellow-green": "#A3B84C",
+                amber: "#D4A843",
+                orange: "#D4864A",
+                "soft-purple": "#8B6AAE",
+                "deep-purple": "#7B5A9E",
+              },
+              surface: {
+                DEFAULT: "#0f1117",
+                raised: "#181b23",
+                border: "#262a36",
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      @keyframes pulse-slow {
+        0%,
+        100% {
+          opacity: 0.6;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.15);
+        }
+      }
+      @keyframes pulse-medium {
+        0%,
+        100% {
+          opacity: 0.7;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.1);
+        }
+      }
+      .dot-pulse-slow {
+        animation: pulse-slow 4s ease-in-out infinite;
+      }
+      .dot-pulse-medium {
+        animation: pulse-medium 2.5s ease-in-out infinite;
+      }
+      .dot-pulse-fast {
+        animation: pulse-medium 1.5s ease-in-out infinite;
+      }
+
+      /* Stagger animation starts so dots don't all pulse in sync */
+      .dot-delay-1 {
+        animation-delay: 0.5s;
+      }
+      .dot-delay-2 {
+        animation-delay: 1s;
+      }
+
+      /* Smooth scroll */
+      html {
+        scroll-behavior: smooth;
+      }
+
+      /* Border shimmer on hero */
+      @keyframes border-shift {
+        0% {
+          border-color: #4a9b6e;
+        }
+        25% {
+          border-color: #a3b84c;
+        }
+        50% {
+          border-color: #d4a843;
+        }
+        75% {
+          border-color: #8b6aae;
+        }
+        100% {
+          border-color: #4a9b6e;
+        }
+      }
+      .hero-border {
+        animation: border-shift 12s ease-in-out infinite;
+      }
+    </style>
+  </head>
+
+  <body class="bg-surface text-gray-200 font-sans antialiased">
+    <!-- ===== HERO ===== -->
+    <section class="relative overflow-hidden">
+      <!-- Ambient glow background -->
+      <div
+        class="absolute inset-0 opacity-20"
+        style="
+          background: radial-gradient(
+            ellipse at 50% 0%,
+            #4a9b6e 0%,
+            transparent 60%
+          );
+        "
+      ></div>
+
+      <div
+        class="relative max-w-4xl mx-auto px-6 pt-24 pb-20 sm:pt-32 sm:pb-28 text-center"
+      >
+        <h1
+          class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight"
+        >
+          Your screen already knows what time it is.
+          <span class="text-morph-green">Now you do too.</span>
+        </h1>
+
+        <p class="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto">
+          Morph paints a subtle, color-changing border around your screen based
+          on your calendar. Green when you have space. Amber when a meeting is
+          approaching. Purple when time's up. No alarms. No pop-ups. Just color
+          in your peripheral vision.
+        </p>
+
+        <div
+          class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+        >
+          <a
+            href="https://github.com/thegian7/Morph/releases"
+            class="inline-flex items-center gap-2 px-7 py-3.5 bg-morph-green hover:bg-morph-soft-green text-white font-semibold rounded-lg transition-colors text-lg"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"
+              />
+            </svg>
+            Download for macOS
+          </a>
+          <a
+            href="https://github.com/thegian7/Morph/releases"
+            class="inline-flex items-center gap-2 px-7 py-3.5 bg-surface-raised hover:bg-surface-border text-white font-semibold rounded-lg border border-surface-border transition-colors text-lg"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"
+              />
+            </svg>
+            Download for Windows
+          </a>
+        </div>
+
+        <p class="mt-5 text-sm text-gray-500">
+          Free and open source &middot; GPL-3.0
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== THE PROBLEM ===== -->
+    <section class="py-20 sm:py-28">
+      <div class="max-w-3xl mx-auto px-6">
+        <h2
+          class="text-3xl sm:text-4xl font-bold text-white text-center leading-snug"
+        >
+          Time doesn't feel like a line.
+          <br>
+          <span class="text-morph-amber"
+            >It feels like a cliff you walk off without warning.</span
+          >
+        </h2>
+
+        <p class="mt-8 text-lg text-gray-400 text-center">
+          If you have ADHD, autism, or just a packed calendar&mdash;you already
+          know. Traditional solutions all share the same flaw: they demand your
+          attention.
+        </p>
+
+        <div
+          class="mt-12 grid sm:grid-cols-3 gap-6 text-center sm:text-left"
+        >
+          <div class="bg-surface-raised rounded-xl p-6 border border-surface-border">
+            <p class="text-2xl mb-2">&#128276;</p>
+            <p class="font-semibold text-white">Alarms startle</p>
+            <p class="text-sm text-gray-400 mt-1">
+              Yanking you out of flow state with zero warning.
+            </p>
+          </div>
+          <div class="bg-surface-raised rounded-xl p-6 border border-surface-border">
+            <p class="text-2xl mb-2">&#128233;</p>
+            <p class="font-semibold text-white">Notifications pile up</p>
+            <p class="text-sm text-gray-400 mt-1">
+              Trained to ignore them? You're not alone.
+            </p>
+          </div>
+          <div class="bg-surface-raised rounded-xl p-6 border border-surface-border">
+            <p class="text-2xl mb-2">&#128178;</p>
+            <p class="font-semibold text-white">Timeqube costs&nbsp;$110</p>
+            <p class="text-sm text-gray-400 mt-1">
+              A physical LED cube that can't travel with your laptop.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== HOW IT WORKS ===== -->
+    <section class="py-20 sm:py-28 bg-surface-raised">
+      <div class="max-w-4xl mx-auto px-6">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white text-center">
+          How it works
+        </h2>
+        <p class="mt-4 text-gray-400 text-center max-w-2xl mx-auto">
+          Colors shift gradually&mdash;your brain absorbs the change without
+          ever having to check the time.
+        </p>
+
+        <div class="mt-14 space-y-4">
+          <!-- Table header (desktop) -->
+          <div
+            class="hidden sm:grid grid-cols-[1fr_auto_1fr] gap-6 items-center px-6 text-sm font-semibold text-gray-500 uppercase tracking-wider"
+          >
+            <span>Situation</span>
+            <span class="w-10 text-center">Color</span>
+            <span>You feel</span>
+          </div>
+
+          <!-- Rows -->
+          <div
+            class="grid sm:grid-cols-[1fr_auto_1fr] gap-3 sm:gap-6 items-center bg-surface rounded-xl px-6 py-4 border border-surface-border"
+          >
+            <span class="text-white font-medium">Nothing for 60+ min</span>
+            <span class="flex justify-center"
+              ><span
+                class="w-4 h-4 rounded-full inline-block"
+                style="background-color: #4a9b6e; opacity: 0.6"
+              ></span
+            ></span>
+            <span class="text-gray-400">Deep focus zone</span>
+          </div>
+
+          <div
+            class="grid sm:grid-cols-[1fr_auto_1fr] gap-3 sm:gap-6 items-center bg-surface rounded-xl px-6 py-4 border border-surface-border"
+          >
+            <span class="text-white font-medium">Meeting in ~30 min</span>
+            <span class="flex justify-center"
+              ><span
+                class="w-4 h-4 rounded-full inline-block dot-pulse-slow"
+                style="background-color: #5bae7a"
+              ></span
+            ></span>
+            <span class="text-gray-400">Subconscious nudge</span>
+          </div>
+
+          <div
+            class="grid sm:grid-cols-[1fr_auto_1fr] gap-3 sm:gap-6 items-center bg-surface rounded-xl px-6 py-4 border border-surface-border"
+          >
+            <span class="text-white font-medium">Meeting in ~15 min</span>
+            <span class="flex justify-center"
+              ><span
+                class="w-4 h-4 rounded-full inline-block dot-pulse-medium"
+                style="background-color: #a3b84c"
+              ></span
+            ></span>
+            <span class="text-gray-400">Body starts preparing</span>
+          </div>
+
+          <div
+            class="grid sm:grid-cols-[1fr_auto_1fr] gap-3 sm:gap-6 items-center bg-surface rounded-xl px-6 py-4 border border-surface-border"
+          >
+            <span class="text-white font-medium">Meeting in ~5 min</span>
+            <span class="flex justify-center"
+              ><span
+                class="w-4 h-4 rounded-full inline-block dot-pulse-medium dot-delay-1"
+                style="background-color: #d4a843"
+              ></span
+            ></span>
+            <span class="text-gray-400">Time to wrap up</span>
+          </div>
+
+          <div
+            class="grid sm:grid-cols-[1fr_auto_1fr] gap-3 sm:gap-6 items-center bg-surface rounded-xl px-6 py-4 border border-surface-border"
+          >
+            <span class="text-white font-medium">Meeting in ~2 min</span>
+            <span class="flex justify-center"
+              ><span
+                class="w-4 h-4 rounded-full inline-block dot-pulse-fast"
+                style="background-color: #d4864a"
+              ></span
+            ></span>
+            <span class="text-gray-400">Transition imminent</span>
+          </div>
+
+          <div
+            class="grid sm:grid-cols-[1fr_auto_1fr] gap-3 sm:gap-6 items-center bg-surface rounded-xl px-6 py-4 border border-surface-border"
+          >
+            <span class="text-white font-medium">In a meeting (late)</span>
+            <span class="flex justify-center"
+              ><span
+                class="w-4 h-4 rounded-full inline-block dot-pulse-slow dot-delay-2"
+                style="background-color: #8b6aae"
+              ></span
+            ></span>
+            <span class="text-gray-400">Approaching the end</span>
+          </div>
+
+          <div
+            class="grid sm:grid-cols-[1fr_auto_1fr] gap-3 sm:gap-6 items-center bg-surface rounded-xl px-6 py-4 border border-surface-border"
+          >
+            <span class="text-white font-medium">Overtime</span>
+            <span class="flex justify-center"
+              ><span
+                class="w-4 h-4 rounded-full inline-block dot-pulse-medium dot-delay-1"
+                style="background-color: #7b5a9e"
+              ></span
+            ></span>
+            <span class="text-gray-400">Time's up&mdash;gently</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== THE SCIENCE ===== -->
+    <section class="py-20 sm:py-28">
+      <div class="max-w-4xl mx-auto px-6">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white text-center">
+          The science
+        </h2>
+        <p class="mt-4 text-gray-400 text-center max-w-xl mx-auto">
+          This isn't a guess. There's real research behind ambient color as a
+          time cue.
+        </p>
+
+        <div class="mt-12 grid md:grid-cols-3 gap-6">
+          <div
+            class="bg-surface-raised rounded-xl p-6 border border-surface-border"
+          >
+            <div
+              class="w-10 h-10 rounded-lg bg-morph-green/20 flex items-center justify-center mb-4"
+            >
+              <svg
+                class="w-5 h-5 text-morph-green"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-white text-lg">
+              Peripheral color works
+            </h3>
+            <p class="text-sm text-gray-400 mt-2">
+              Timeqube's EU-funded R&amp;D found that ambient colors in
+              peripheral vision produce awareness without stress. Your brain
+              registers the shift without conscious effort.
+            </p>
+          </div>
+
+          <div
+            class="bg-surface-raised rounded-xl p-6 border border-surface-border"
+          >
+            <div
+              class="w-10 h-10 rounded-lg bg-morph-amber/20 flex items-center justify-center mb-4"
+            >
+              <svg
+                class="w-5 h-5 text-morph-amber"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-white text-lg">
+              Color before text
+            </h3>
+            <p class="text-sm text-gray-400 mt-2">
+              The human visual system processes color before shape or text. A
+              green-to-amber shift reaches your brain faster and more gently
+              than any notification.
+            </p>
+          </div>
+
+          <div
+            class="bg-surface-raised rounded-xl p-6 border border-surface-border"
+          >
+            <div
+              class="w-10 h-10 rounded-lg bg-morph-soft-purple/20 flex items-center justify-center mb-4"
+            >
+              <svg
+                class="w-5 h-5 text-morph-soft-purple"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-white text-lg">
+              Clinically recommended
+            </h3>
+            <p class="text-sm text-gray-400 mt-2">
+              Visual timers are a clinically recommended intervention for ADHD
+              time blindness. The same dopamine systems respond well to ambient
+              environmental cues.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== FEATURES ===== -->
+    <section class="py-20 sm:py-28 bg-surface-raised">
+      <div class="max-w-4xl mx-auto px-6">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white text-center">
+          Features
+        </h2>
+
+        <div class="mt-12 grid sm:grid-cols-2 gap-x-8 gap-y-6">
+          <div class="flex gap-4">
+            <div class="mt-1 flex-shrink-0">
+              <svg
+                class="w-5 h-5 text-morph-green"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p class="font-semibold text-white">Calendar integration</p>
+              <p class="text-sm text-gray-400">
+                Google Calendar and Microsoft 365. Apple Calendar planned.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div class="mt-1 flex-shrink-0">
+              <svg
+                class="w-5 h-5 text-morph-green"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p class="font-semibold text-white">Colorblind accessible</p>
+              <p class="text-sm text-gray-400">
+                Ocean palette (blue-to-orange) for red-green colorblind users.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div class="mt-1 flex-shrink-0">
+              <svg
+                class="w-5 h-5 text-morph-green"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p class="font-semibold text-white">Manual timer presets</p>
+              <p class="text-sm text-gray-400">
+                Pomodoro, short break, long break, focus hour&mdash;no calendar
+                needed.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div class="mt-1 flex-shrink-0">
+              <svg
+                class="w-5 h-5 text-morph-green"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4 6h16M4 12h16m-7 6h7"
+                />
+              </svg>
+            </div>
+            <div>
+              <p class="font-semibold text-white">Menu bar app</p>
+              <p class="text-sm text-gray-400">
+                Runs in your system tray&mdash;no window to manage.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div class="mt-1 flex-shrink-0">
+              <svg
+                class="w-5 h-5 text-morph-green"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p class="font-semibold text-white">Customizable</p>
+              <p class="text-sm text-gray-400">
+                Border thickness, color palette, intensity, and which monitor.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div class="mt-1 flex-shrink-0">
+              <svg
+                class="w-5 h-5 text-morph-green"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p class="font-semibold text-white">Private by design</p>
+              <p class="text-sm text-gray-400">
+                All data stays on your machine. No analytics. No accounts.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== BETA NOTICE ===== -->
+    <section class="py-20 sm:py-28">
+      <div class="max-w-3xl mx-auto px-6">
+        <div class="bg-surface-raised rounded-2xl p-8 sm:p-10 border border-surface-border">
+          <h2 class="text-2xl sm:text-3xl font-bold text-white">
+            Morph is in early beta
+          </h2>
+          <p class="mt-4 text-gray-400">
+            It works. We use it daily. But there are a few things to know before
+            you install:
+          </p>
+
+          <div class="mt-8 space-y-6">
+            <div>
+              <h3 class="font-semibold text-white flex items-center gap-2">
+                <span
+                  class="w-2 h-2 rounded-full bg-morph-amber inline-block"
+                ></span>
+                Google Calendar: "Unverified app" warning
+              </h3>
+              <p class="text-sm text-gray-400 mt-1 ml-4">
+                Google's verification process takes weeks. Morph only reads your
+                event times and titles to determine border colors. No data
+                leaves your machine. Click
+                <strong class="text-gray-300">Advanced</strong> &rarr;
+                <strong class="text-gray-300">Go to Morph (unsafe)</strong> to
+                proceed.
+              </p>
+            </div>
+
+            <div>
+              <h3 class="font-semibold text-white flex items-center gap-2">
+                <span
+                  class="w-2 h-2 rounded-full bg-morph-amber inline-block"
+                ></span>
+                macOS: Gatekeeper warning
+              </h3>
+              <p class="text-sm text-gray-400 mt-1 ml-4">
+                Not yet signed with an Apple Developer certificate.
+                Right-click the app &rarr;
+                <strong class="text-gray-300">Open</strong> &rarr; confirm. You
+                only need to do this once.
+              </p>
+            </div>
+
+            <div>
+              <h3 class="font-semibold text-white flex items-center gap-2">
+                <span
+                  class="w-2 h-2 rounded-full bg-morph-amber inline-block"
+                ></span>
+                Windows: SmartScreen warning
+              </h3>
+              <p class="text-sm text-gray-400 mt-1 ml-4">
+                Click
+                <strong class="text-gray-300">More info</strong> &rarr;
+                <strong class="text-gray-300">Run anyway</strong>.
+              </p>
+            </div>
+          </div>
+
+          <p class="mt-8 text-sm text-gray-500">
+            We're being transparent about these because we'd rather earn your
+            trust than hide the rough edges.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CTA + FOOTER ===== -->
+    <section class="py-20 sm:py-28 bg-surface-raised">
+      <div class="max-w-3xl mx-auto px-6 text-center">
+        <h2 class="text-3xl sm:text-4xl font-bold text-white">
+          Try Morph today
+        </h2>
+        <p class="mt-4 text-gray-400">
+          Free, open source, and built for people who need it most.
+        </p>
+
+        <div
+          class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+        >
+          <a
+            href="https://github.com/thegian7/Morph/releases"
+            class="inline-flex items-center gap-2 px-7 py-3.5 bg-morph-green hover:bg-morph-soft-green text-white font-semibold rounded-lg transition-colors text-lg"
+          >
+            Download for macOS
+          </a>
+          <a
+            href="https://github.com/thegian7/Morph/releases"
+            class="inline-flex items-center gap-2 px-7 py-3.5 bg-surface hover:bg-surface-border text-white font-semibold rounded-lg border border-surface-border transition-colors text-lg"
+          >
+            Download for Windows
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="border-t border-surface-border py-10">
+      <div
+        class="max-w-4xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-6 text-sm text-gray-500"
+      >
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-gray-400">Morph</span>
+          <span>&middot;</span>
+          <span>Built with Rust + Tauri 2</span>
+        </div>
+
+        <div class="flex items-center gap-6">
+          <a
+            href="https://github.com/thegian7/Morph"
+            class="hover:text-gray-300 transition-colors"
+            >GitHub</a
+          >
+          <a
+            href="https://ko-fi.com/morphlight"
+            class="hover:text-gray-300 transition-colors"
+            >Ko-fi</a
+          >
+          <a
+            href="https://github.com/thegian7/Morph/blob/main/LICENSE"
+            class="hover:text-gray-300 transition-colors"
+            >GPL-3.0</a
+          >
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
