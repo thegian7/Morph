@@ -1,0 +1,6 @@
+# Copy this file to config.toml and fill in your own credentials.
+# See README for how to set up a Google Cloud project.
+
+[env]
+GOOGLE_CLIENT_ID = "your-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "GOCSPX-your-secret"

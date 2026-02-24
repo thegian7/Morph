@@ -5,3 +5,4 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .locks/
+src-tauri/.cargo/config.toml

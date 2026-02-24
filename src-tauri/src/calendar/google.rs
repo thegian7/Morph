@@ -12,8 +12,13 @@ use super::types::{CalendarEvent, ProviderType};
 
 // --- Constants ---
 
-const GOOGLE_CLIENT_ID: &str =
-    "715902033958-u6sdotrtdf7tsv7sm4vshtvqus1tm7hs.apps.googleusercontent.com";
+/// Google OAuth credentials — set via environment variables at compile time.
+/// For development, create your own Google Cloud project and set these in .cargo/config.toml:
+///   [env]
+///   GOOGLE_CLIENT_ID = "your-client-id.apps.googleusercontent.com"
+///   GOOGLE_CLIENT_SECRET = "GOCSPX-your-secret"
+const GOOGLE_CLIENT_ID: &str = env!("GOOGLE_CLIENT_ID");
+const GOOGLE_CLIENT_SECRET: &str = env!("GOOGLE_CLIENT_SECRET");
 
 const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
@@ -23,7 +28,7 @@ const CALENDAR_EVENTS_URL: &str = "https://www.googleapis.com/calendar/v3/calend
 const SCOPE: &str = "https://www.googleapis.com/auth/calendar.events.readonly \
                      https://www.googleapis.com/auth/userinfo.email";
 
-const KEYRING_SERVICE: &str = "com.lighttime.google-oauth";
+const KEYRING_SERVICE: &str = "com.morph.google-oauth";
 
 /// Port range to try for the localhost redirect server.
 const PORT_RANGE_START: u16 = 19847;
@@ -280,7 +285,7 @@ impl GoogleCalendarProvider {
             })?;
 
         let html = "<html><body><h2>Authorization successful!</h2>\
-                    <p>You can close this tab and return to LightTime.</p></body></html>";
+                    <p>You can close this tab and return to Morph.</p></body></html>";
         let response = tiny_http::Response::from_string(html).with_header(
             "Content-Type: text/html"
                 .parse::<tiny_http::Header>()
@@ -300,6 +305,7 @@ impl GoogleCalendarProvider {
     ) -> Result<TokenResponse, CalendarError> {
         let params = [
             ("client_id", self.client_id.as_str()),
+            ("client_secret", GOOGLE_CLIENT_SECRET),
             ("code", code),
             ("code_verifier", verifier),
             ("grant_type", "authorization_code"),
@@ -538,6 +544,7 @@ impl CalendarProvider for GoogleCalendarProvider {
 
         let params = [
             ("client_id", self.client_id.as_str()),
+            ("client_secret", GOOGLE_CLIENT_SECRET),
             ("refresh_token", refresh),
             ("grant_type", "refresh_token"),
         ];
