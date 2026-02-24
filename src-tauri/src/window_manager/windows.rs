@@ -135,7 +135,11 @@ impl WindowsOverlayManager {
 
                     // Convert device name from wide chars
                     let device_name = String::from_utf16_lossy(
-                        &info.szDevice[..info.szDevice.iter().position(|&c| c == 0).unwrap_or(info.szDevice.len())],
+                        &info.szDevice[..info
+                            .szDevice
+                            .iter()
+                            .position(|&c| c == 0)
+                            .unwrap_or(info.szDevice.len())],
                     );
 
                     let id = if is_primary {
@@ -169,7 +173,12 @@ impl WindowsOverlayManager {
         let monitors = Self::get_available_monitors();
         for mon in &monitors {
             if mon.id == id {
-                return (mon.x as i32, mon.y as i32, mon.width as i32, mon.height as i32);
+                return (
+                    mon.x as i32,
+                    mon.y as i32,
+                    mon.width as i32,
+                    mon.height as i32,
+                );
             }
         }
 
@@ -306,13 +315,7 @@ impl OverlayManager for WindowsOverlayManager {
             match Self::get_hwnd(window) {
                 Ok(hwnd) => {
                     let (x, y, w, h) = Self::get_monitor_rect_for_id(&self.target_monitor, hwnd);
-                    self.position_borders(
-                        x as f64,
-                        y as f64,
-                        w as f64,
-                        h as f64,
-                        thickness,
-                    );
+                    self.position_borders(x as f64, y as f64, w as f64, h as f64, thickness);
                 }
                 Err(e) => {
                     eprintln!("Failed to get HWND for thickness update: {}", e);

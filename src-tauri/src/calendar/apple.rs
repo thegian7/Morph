@@ -7,9 +7,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use objc2::rc::Retained;
-use objc2_event_kit::{
-    EKAuthorizationStatus, EKEntityType, EKEvent, EKEventStore,
-};
+use objc2_event_kit::{EKAuthorizationStatus, EKEntityType, EKEvent, EKEventStore};
 use objc2_foundation::NSDate;
 use std::sync::mpsc;
 
@@ -51,9 +49,7 @@ impl AppleCalendarProvider {
     /// Check the current authorization status without triggering a prompt.
     fn is_authorized() -> bool {
         // SAFETY: Class method with no side effects.
-        let status = unsafe {
-            EKEventStore::authorizationStatusForEntityType(EKEntityType::Event)
-        };
+        let status = unsafe { EKEventStore::authorizationStatusForEntityType(EKEntityType::Event) };
         status == EKAuthorizationStatus::FullAccess
     }
 }
@@ -78,25 +74,26 @@ impl CalendarProvider for AppleCalendarProvider {
         // Build the block and call the EventKit API in a non-async scope so
         // the non-Send RcBlock does not live across the .await point.
         {
-            let completion = block2::RcBlock::new(move |granted: objc2::runtime::Bool, error: *mut objc2_foundation::NSError| {
-                if granted.as_bool() {
-                    let _ = tx.send(Ok(()));
-                } else if !error.is_null() {
-                    // SAFETY: pointer was checked for null.
-                    let desc = unsafe { (*error).localizedDescription() };
-                    let _ = tx.send(Err(desc.to_string()));
-                } else {
-                    let _ = tx.send(Err("calendar access denied by user".into()));
-                }
-            });
+            let completion = block2::RcBlock::new(
+                move |granted: objc2::runtime::Bool, error: *mut objc2_foundation::NSError| {
+                    if granted.as_bool() {
+                        let _ = tx.send(Ok(()));
+                    } else if !error.is_null() {
+                        // SAFETY: pointer was checked for null.
+                        let desc = unsafe { (*error).localizedDescription() };
+                        let _ = tx.send(Err(desc.to_string()));
+                    } else {
+                        let _ = tx.send(Err("calendar access denied by user".into()));
+                    }
+                },
+            );
 
             // SAFETY: the raw pointer is valid for the lifetime of `completion`
             // which lives until the end of this block. EventKit retains the
             // block internally if it needs it beyond this scope.
             let ptr = block2::RcBlock::as_ptr(&completion);
             unsafe {
-                self.store
-                    .requestFullAccessToEventsWithCompletion(ptr);
+                self.store.requestFullAccessToEventsWithCompletion(ptr);
             }
         } // `completion` (RcBlock) dropped here — before the await
 
@@ -138,16 +135,11 @@ impl CalendarProvider for AppleCalendarProvider {
         // calendars (None = all calendars).
         let predicate = unsafe {
             self.store
-                .predicateForEventsWithStartDate_endDate_calendars(
-                    &start_date,
-                    &end_date,
-                    None,
-                )
+                .predicateForEventsWithStartDate_endDate_calendars(&start_date, &end_date, None)
         };
 
         // SAFETY: fetching events matching a valid predicate.
-        let ek_events =
-            unsafe { self.store.eventsMatchingPredicate(&predicate) };
+        let ek_events = unsafe { self.store.eventsMatchingPredicate(&predicate) };
 
         let mut events: Vec<CalendarEvent> = ek_events
             .iter()
@@ -192,16 +184,16 @@ fn map_ek_event(event: &EKEvent, provider_id: &str) -> Option<CalendarEvent> {
     let event_id = unsafe { event.calendarItemIdentifier().to_string() };
     let is_all_day = unsafe { event.isAllDay() };
 
-    let start_ts =
-        unsafe { event.startDate().timeIntervalSince1970() };
-    let end_ts =
-        unsafe { event.endDate().timeIntervalSince1970() };
+    let start_ts = unsafe { event.startDate().timeIntervalSince1970() };
+    let end_ts = unsafe { event.endDate().timeIntervalSince1970() };
 
     let start_time = DateTime::from_timestamp(start_ts as i64, 0)?;
     let end_time = DateTime::from_timestamp(end_ts as i64, 0)?;
 
     let calendar_id = unsafe {
-        event.calendar().map(|cal| cal.calendarIdentifier().to_string())
+        event
+            .calendar()
+            .map(|cal| cal.calendarIdentifier().to_string())
     };
 
     Some(CalendarEvent {

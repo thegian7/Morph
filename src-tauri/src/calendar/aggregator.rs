@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 use super::error::CalendarError;
 use super::provider::CalendarProvider;
-use super::types::CalendarEvent;
+use super::types::{CalendarEvent, ProviderType};
 
 /// Merges events from multiple calendar providers, deduplicates, and sorts.
 pub struct CalendarAggregator {
@@ -34,9 +34,20 @@ impl CalendarAggregator {
     /// Remove a provider by its provider_id. Returns true if found and removed.
     pub fn remove_provider(&mut self, provider_id: &str) -> bool {
         let len_before = self.providers.len();
-        self.providers
-            .retain(|p| p.provider_id() != provider_id);
+        self.providers.retain(|p| p.provider_id() != provider_id);
         self.providers.len() != len_before
+    }
+
+    /// Remove all providers whose provider_id starts with the given prefix.
+    pub fn remove_providers_by_prefix(&mut self, prefix: &str) {
+        self.providers
+            .retain(|p| !p.provider_id().starts_with(prefix));
+    }
+
+    /// Remove all providers of a given type.
+    pub fn remove_providers_by_type(&mut self, provider_type: super::types::ProviderType) {
+        self.providers
+            .retain(|p| p.provider_type() != provider_type);
     }
 
     /// The number of registered providers.
@@ -44,15 +55,19 @@ impl CalendarAggregator {
         self.providers.len()
     }
 
+    /// Return (provider_type, account_name) for each connected provider.
+    pub fn connected_providers(&self) -> Vec<(ProviderType, String)> {
+        self.providers
+            .iter()
+            .map(|p| (p.provider_type(), p.account_name().to_string()))
+            .collect()
+    }
+
     /// Fetch upcoming events from all providers.
     ///
     /// One provider failing does NOT prevent events from other providers from
     /// being returned. Errors are collected in `AggregatorResult::errors`.
-    pub async fn fetch_events(
-        &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
-    ) -> AggregatorResult {
+    pub async fn fetch_events(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> AggregatorResult {
         let mut all_events: Vec<CalendarEvent> = Vec::new();
         let mut errors: Vec<(String, CalendarError)> = Vec::new();
 
@@ -82,11 +97,7 @@ impl Default for CalendarAggregator {
 fn deduplicate_events(mut events: Vec<CalendarEvent>) -> Vec<CalendarEvent> {
     let mut seen = HashSet::new();
     events.retain(|event| {
-        let key = (
-            event.title.clone(),
-            event.start_time,
-            event.end_time,
-        );
+        let key = (event.title.clone(), event.start_time, event.end_time);
         seen.insert(key)
     });
 
@@ -172,7 +183,9 @@ mod tests {
         }
 
         async fn refresh_token(&mut self) -> Result<(), CalendarError> {
-            Err(CalendarError::TokenRefreshFailed("mock refresh failure".into()))
+            Err(CalendarError::TokenRefreshFailed(
+                "mock refresh failure".into(),
+            ))
         }
 
         fn provider_id(&self) -> &str {
@@ -231,9 +244,7 @@ mod tests {
             make_event("g1", "Late Meeting", 16, "google-work"),
             make_event("g2", "Early Meeting", 9, "google-work"),
         ];
-        let apple_events = vec![
-            make_event("a1", "Lunch", 12, "apple-personal"),
-        ];
+        let apple_events = vec![make_event("a1", "Lunch", 12, "apple-personal")];
 
         let mut agg = CalendarAggregator::new();
         agg.add_provider(Box::new(MockProvider::new("google-work", google_events)));
@@ -274,8 +285,14 @@ mod tests {
         };
 
         let mut agg = CalendarAggregator::new();
-        agg.add_provider(Box::new(MockProvider::new("google-work", vec![shared_event_google])));
-        agg.add_provider(Box::new(MockProvider::new("ms-work", vec![shared_event_ms])));
+        agg.add_provider(Box::new(MockProvider::new(
+            "google-work",
+            vec![shared_event_google],
+        )));
+        agg.add_provider(Box::new(MockProvider::new(
+            "ms-work",
+            vec![shared_event_ms],
+        )));
 
         let from = Utc.with_ymd_and_hms(2026, 2, 19, 0, 0, 0).unwrap();
         let to = Utc.with_ymd_and_hms(2026, 2, 20, 0, 0, 0).unwrap();
@@ -287,9 +304,7 @@ mod tests {
 
     #[tokio::test]
     async fn failing_provider_does_not_block_others() {
-        let good_events = vec![
-            make_event("1", "Good Meeting", 10, "google-work"),
-        ];
+        let good_events = vec![make_event("1", "Good Meeting", 10, "google-work")];
 
         let mut agg = CalendarAggregator::new();
         agg.add_provider(Box::new(MockProvider::new("google-work", good_events)));

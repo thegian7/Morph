@@ -18,7 +18,7 @@ const CALENDAR_VIEW_URL: &str = "https://graph.microsoft.com/v1.0/me/calendarVie
 const REDIRECT_PORT_START: u16 = 19857;
 const REDIRECT_PORT_END: u16 = 19867;
 const SCOPES: &str = "Calendars.Read offline_access";
-const KEYRING_SERVICE: &str = "com.lighttime.microsoft-oauth";
+const KEYRING_SERVICE: &str = "com.morph.microsoft-oauth";
 
 /// Microsoft Graph Calendar provider using OAuth2 PKCE.
 pub struct MicrosoftCalendarProvider {
@@ -91,11 +91,12 @@ impl MicrosoftCalendarProvider {
 
     /// Try to load tokens from the system keyring on startup.
     pub fn load_stored_tokens(&mut self) -> Result<(), CalendarError> {
-        let entry = keyring::Entry::new(KEYRING_SERVICE, "refresh_token")
-            .map_err(|e| CalendarError::ProviderError {
+        let entry = keyring::Entry::new(KEYRING_SERVICE, "refresh_token").map_err(|e| {
+            CalendarError::ProviderError {
                 provider: "microsoft".into(),
                 message: format!("keyring error: {e}"),
-            })?;
+            }
+        })?;
 
         match entry.get_password() {
             Ok(token) => {
@@ -119,11 +120,12 @@ impl MicrosoftCalendarProvider {
     /// Store tokens in the system keyring.
     fn store_tokens(&self) -> Result<(), CalendarError> {
         if let Some(ref rt) = self.refresh_token {
-            let entry = keyring::Entry::new(KEYRING_SERVICE, "refresh_token")
-                .map_err(|e| CalendarError::ProviderError {
+            let entry = keyring::Entry::new(KEYRING_SERVICE, "refresh_token").map_err(|e| {
+                CalendarError::ProviderError {
                     provider: "microsoft".into(),
                     message: format!("keyring error: {e}"),
-                })?;
+                }
+            })?;
             entry
                 .set_password(rt)
                 .map_err(|e| CalendarError::ProviderError {
@@ -133,11 +135,12 @@ impl MicrosoftCalendarProvider {
         }
 
         if let Some(ref email) = self.account_email {
-            let entry = keyring::Entry::new(KEYRING_SERVICE, "account_email")
-                .map_err(|e| CalendarError::ProviderError {
+            let entry = keyring::Entry::new(KEYRING_SERVICE, "account_email").map_err(|e| {
+                CalendarError::ProviderError {
                     provider: "microsoft".into(),
                     message: format!("keyring error: {e}"),
-                })?;
+                }
+            })?;
             entry
                 .set_password(email)
                 .map_err(|e| CalendarError::ProviderError {
@@ -204,13 +207,12 @@ impl MicrosoftCalendarProvider {
         })?;
 
         // Wait for the OAuth callback (blocking on the tiny_http server)
-        let auth_code = tokio::task::spawn_blocking(move || {
-            Self::wait_for_callback(&server, &state)
-        })
-        .await
-        .map_err(|e| {
-            CalendarError::AuthenticationFailed(format!("callback task failed: {e}"))
-        })??;
+        let auth_code =
+            tokio::task::spawn_blocking(move || Self::wait_for_callback(&server, &state))
+                .await
+                .map_err(|e| {
+                    CalendarError::AuthenticationFailed(format!("callback task failed: {e}"))
+                })??;
 
         // Exchange authorization code for tokens
         self.exchange_code(&auth_code, &code_verifier, &redirect_uri)
@@ -220,8 +222,7 @@ impl MicrosoftCalendarProvider {
     }
 
     /// Try to bind a tiny_http server on one of the ports in the redirect range.
-    fn start_redirect_server(
-    ) -> Result<(tiny_http::Server, u16), CalendarError> {
+    fn start_redirect_server() -> Result<(tiny_http::Server, u16), CalendarError> {
         for port in REDIRECT_PORT_START..=REDIRECT_PORT_END {
             if let Ok(server) = tiny_http::Server::http(format!("127.0.0.1:{port}")) {
                 return Ok((server, port));
@@ -240,13 +241,9 @@ impl MicrosoftCalendarProvider {
         // Wait up to 120 seconds for the callback
         let request = server
             .recv_timeout(std::time::Duration::from_secs(120))
-            .map_err(|e| {
-                CalendarError::AuthenticationFailed(format!("server error: {e}"))
-            })?
+            .map_err(|e| CalendarError::AuthenticationFailed(format!("server error: {e}")))?
             .ok_or_else(|| {
-                CalendarError::AuthenticationFailed(
-                    "timed out waiting for OAuth callback".into(),
-                )
+                CalendarError::AuthenticationFailed("timed out waiting for OAuth callback".into())
             })?;
 
         let url_str = format!("http://localhost{}", request.url());
@@ -254,18 +251,13 @@ impl MicrosoftCalendarProvider {
             CalendarError::AuthenticationFailed(format!("invalid callback URL: {e}"))
         })?;
 
-        let pairs: std::collections::HashMap<_, _> =
-            url.query_pairs().into_owned().collect();
+        let pairs: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
 
         // Check for errors from the identity provider
         if let Some(error) = pairs.get("error") {
-            let desc = pairs
-                .get("error_description")
-                .cloned()
-                .unwrap_or_default();
-            let response = tiny_http::Response::from_string(
-                "Authentication failed. You can close this tab.",
-            );
+            let desc = pairs.get("error_description").cloned().unwrap_or_default();
+            let response =
+                tiny_http::Response::from_string("Authentication failed. You can close this tab.");
             let _ = request.respond(response);
             return Err(CalendarError::AuthenticationFailed(format!(
                 "{error}: {desc}"
@@ -273,9 +265,9 @@ impl MicrosoftCalendarProvider {
         }
 
         // Validate state
-        let returned_state = pairs.get("state").ok_or_else(|| {
-            CalendarError::AuthenticationFailed("missing state parameter".into())
-        })?;
+        let returned_state = pairs
+            .get("state")
+            .ok_or_else(|| CalendarError::AuthenticationFailed("missing state parameter".into()))?;
         if returned_state != expected_state {
             let response = tiny_http::Response::from_string(
                 "Authentication failed (state mismatch). You can close this tab.",
@@ -289,15 +281,12 @@ impl MicrosoftCalendarProvider {
         let code = pairs
             .get("code")
             .ok_or_else(|| {
-                CalendarError::AuthenticationFailed(
-                    "missing authorization code in callback".into(),
-                )
+                CalendarError::AuthenticationFailed("missing authorization code in callback".into())
             })?
             .clone();
 
-        let response = tiny_http::Response::from_string(
-            "Authentication successful! You can close this tab.",
-        );
+        let response =
+            tiny_http::Response::from_string("Authentication successful! You can close this tab.");
         let _ = request.respond(response);
 
         Ok(code)
@@ -337,9 +326,7 @@ impl MicrosoftCalendarProvider {
         }
 
         let token_resp: TokenResponse = resp.json().await.map_err(|e| {
-            CalendarError::AuthenticationFailed(format!(
-                "failed to parse token response: {e}"
-            ))
+            CalendarError::AuthenticationFailed(format!("failed to parse token response: {e}"))
         })?;
 
         self.access_token = Some(token_resp.access_token);
@@ -374,6 +361,11 @@ impl MicrosoftCalendarProvider {
         claims.preferred_username.or(claims.email)
     }
 
+    /// Returns true if a refresh token is available (loaded from keyring or from OAuth flow).
+    pub fn has_refresh_token(&self) -> bool {
+        self.refresh_token.is_some()
+    }
+
     /// Check if the access token is expired or about to expire (within 60s).
     #[allow(dead_code)] // Used in tests and will be called by the poller
     fn is_token_expired(&self) -> bool {
@@ -387,6 +379,13 @@ impl MicrosoftCalendarProvider {
 #[async_trait]
 impl CalendarProvider for MicrosoftCalendarProvider {
     async fn authenticate(&mut self) -> Result<(), CalendarError> {
+        if self.client_id == "PLACEHOLDER_AZURE_CLIENT_ID" {
+            return Err(CalendarError::AuthenticationFailed(
+                "Microsoft Calendar is not configured. An Azure app registration \
+                 with a valid client ID is required."
+                    .to_string(),
+            ));
+        }
         self.run_oauth_flow().await
     }
 
@@ -409,10 +408,7 @@ impl CalendarProvider for MicrosoftCalendarProvider {
             .query(&[
                 ("startDateTime", from.to_rfc3339()),
                 ("endDateTime", to.to_rfc3339()),
-                (
-                    "$select",
-                    "id,subject,start,end,isAllDay".to_string(),
-                ),
+                ("$select", "id,subject,start,end,isAllDay".to_string()),
                 ("$orderby", "start/dateTime".to_string()),
                 ("$top", "250".to_string()),
             ])
@@ -429,9 +425,7 @@ impl CalendarProvider for MicrosoftCalendarProvider {
         }
 
         let calendar_resp: MsCalendarViewResponse = resp.json().await.map_err(|e| {
-            CalendarError::DeserializationError(format!(
-                "failed to parse MS Graph response: {e}"
-            ))
+            CalendarError::DeserializationError(format!("failed to parse MS Graph response: {e}"))
         })?;
 
         let events = calendar_resp
@@ -475,9 +469,7 @@ impl CalendarProvider for MicrosoftCalendarProvider {
         }
 
         let token_resp: TokenResponse = resp.json().await.map_err(|e| {
-            CalendarError::TokenRefreshFailed(format!(
-                "failed to parse refresh response: {e}"
-            ))
+            CalendarError::TokenRefreshFailed(format!("failed to parse refresh response: {e}"))
         })?;
 
         self.access_token = Some(token_resp.access_token);
@@ -515,7 +507,9 @@ impl CalendarProvider for MicrosoftCalendarProvider {
 /// Convert a Microsoft Graph event to our CalendarEvent type.
 fn convert_ms_event(ms_event: MsEvent, provider_id: &str) -> Option<CalendarEvent> {
     let id = ms_event.id.unwrap_or_default();
-    let title = ms_event.subject.unwrap_or_else(|| "(No Subject)".to_string());
+    let title = ms_event
+        .subject
+        .unwrap_or_else(|| "(No Subject)".to_string());
 
     let start_str = ms_event.start?.date_time?;
     let end_str = ms_event.end?.date_time?;
@@ -609,14 +603,10 @@ mod tests {
         assert_eq!(url.host_str(), Some("login.microsoftonline.com"));
         assert!(url.path().contains("/common/oauth2/v2.0/authorize"));
 
-        let pairs: std::collections::HashMap<_, _> =
-            url.query_pairs().into_owned().collect();
+        let pairs: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
         assert_eq!(pairs.get("client_id").unwrap(), "test-client-id");
         assert_eq!(pairs.get("response_type").unwrap(), "code");
-        assert_eq!(
-            pairs.get("redirect_uri").unwrap(),
-            "http://localhost:19857"
-        );
+        assert_eq!(pairs.get("redirect_uri").unwrap(), "http://localhost:19857");
         assert_eq!(pairs.get("scope").unwrap(), "Calendars.Read offline_access");
         assert_eq!(pairs.get("code_challenge_method").unwrap(), "S256");
         assert_eq!(pairs.get("code_challenge").unwrap(), "test-challenge");
@@ -632,8 +622,7 @@ mod tests {
             "preferred_username": "user@outlook.com",
             "email": "user@example.com"
         });
-        let payload_b64 =
-            URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload).unwrap());
+        let payload_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload).unwrap());
         let signature = URL_SAFE_NO_PAD.encode(b"fake-sig");
 
         let token = format!("{header}.{payload_b64}.{signature}");
@@ -647,8 +636,7 @@ mod tests {
         let payload = serde_json::json!({
             "email": "fallback@example.com"
         });
-        let payload_b64 =
-            URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload).unwrap());
+        let payload_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload).unwrap());
         let signature = URL_SAFE_NO_PAD.encode(b"fake-sig");
 
         let token = format!("{header}.{payload_b64}.{signature}");

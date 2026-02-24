@@ -93,7 +93,10 @@ impl MacOSOverlayManager {
             let id = if is_primary {
                 "primary".to_string()
             } else {
-                format!("{}:{}x{}", name, frame.origin.x as i64, frame.origin.y as i64)
+                format!(
+                    "{}:{}x{}",
+                    name, frame.origin.x as i64, frame.origin.y as i64
+                )
             };
 
             monitors.push(MonitorInfo {
@@ -123,7 +126,10 @@ impl MacOSOverlayManager {
         for screen in screens.iter() {
             let frame = screen.frame();
             let name = screen.localizedName().to_string();
-            let screen_id = format!("{}:{}x{}", name, frame.origin.x as i64, frame.origin.y as i64);
+            let screen_id = format!(
+                "{}:{}x{}",
+                name, frame.origin.x as i64, frame.origin.y as i64
+            );
             if screen_id == id {
                 return Some(frame);
             }
@@ -258,10 +264,7 @@ impl OverlayManager for MacOSOverlayManager {
         // Apply NSWindow config and show each window
         for window in self.windows() {
             if let Err(e) = Self::configure_ns_window(window) {
-                eprintln!(
-                    "Failed to configure NSWindow for '{}': {e}",
-                    window.label()
-                );
+                eprintln!("Failed to configure NSWindow for '{}': {e}", window.label());
             }
             if let Err(e) = window.show() {
                 eprintln!("Failed to show '{}': {e}", window.label());
@@ -288,7 +291,10 @@ impl OverlayManager for MacOSOverlayManager {
                 thickness,
             );
         } else {
-            eprintln!("Failed to get screen frame for set_thickness (target: {})", self.target_monitor);
+            eprintln!(
+                "Failed to get screen frame for set_thickness (target: {})",
+                self.target_monitor
+            );
         }
     }
 

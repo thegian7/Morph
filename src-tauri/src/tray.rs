@@ -24,16 +24,43 @@ pub fn phase_to_label(phase: &str) -> &str {
 }
 
 /// Build the tray context menu for the given status label.
-fn build_menu(app: &AppHandle, status_label: &str) -> Result<Menu<tauri::Wry>, Box<dyn std::error::Error>> {
+fn build_menu(
+    app: &AppHandle,
+    status_label: &str,
+) -> Result<Menu<tauri::Wry>, Box<dyn std::error::Error>> {
     let timer_submenu = Submenu::with_items(
         app,
         "Start Timer",
         true,
         &[
-            &MenuItem::with_id(app, "timer_pomodoro", "Pomodoro (25 min)", true, None::<&str>)?,
-            &MenuItem::with_id(app, "timer_short_break", "Short Break (5 min)", true, None::<&str>)?,
-            &MenuItem::with_id(app, "timer_long_break", "Long Break (15 min)", true, None::<&str>)?,
-            &MenuItem::with_id(app, "timer_focus_hour", "Focus Hour (60 min)", true, None::<&str>)?,
+            &MenuItem::with_id(
+                app,
+                "timer_pomodoro",
+                "Pomodoro (25 min)",
+                true,
+                None::<&str>,
+            )?,
+            &MenuItem::with_id(
+                app,
+                "timer_short_break",
+                "Short Break (5 min)",
+                true,
+                None::<&str>,
+            )?,
+            &MenuItem::with_id(
+                app,
+                "timer_long_break",
+                "Long Break (15 min)",
+                true,
+                None::<&str>,
+            )?,
+            &MenuItem::with_id(
+                app,
+                "timer_focus_hour",
+                "Focus Hour (60 min)",
+                true,
+                None::<&str>,
+            )?,
         ],
     )?;
 

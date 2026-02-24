@@ -151,8 +151,8 @@ async fn get_sqlite_pool(app: &AppHandle) -> Result<SqlitePool, String> {
     let db_instances = app.state::<tauri_plugin_sql::DbInstances>();
     let instances = db_instances.0.read().await;
     let pool = instances
-        .get("sqlite:lighttime.db")
-        .ok_or_else(|| "Database 'sqlite:lighttime.db' not loaded".to_string())?;
+        .get("sqlite:morph.db")
+        .ok_or_else(|| "Database 'sqlite:morph.db' not loaded".to_string())?;
     match pool {
         tauri_plugin_sql::DbPool::Sqlite(pool) => Ok(pool.clone()),
         #[allow(unreachable_patterns)]

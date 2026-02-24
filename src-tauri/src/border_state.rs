@@ -58,7 +58,8 @@ mod tests {
 
     #[test]
     fn deserializes_from_camel_case_json() {
-        let json = r##"{"phase":"in-session-early","color":"#4A9B6E","opacity":0.25,"pulseSpeed":3000}"##;
+        let json =
+            r##"{"phase":"in-session-early","color":"#4A9B6E","opacity":0.25,"pulseSpeed":3000}"##;
         let state: BorderState = serde_json::from_str(json).unwrap();
 
         assert_eq!(state.phase, "in-session-early");

@@ -5,8 +5,8 @@ pub mod tick;
 pub mod tray;
 pub mod window_manager;
 
-use std::sync::{Arc, Mutex};
 use sqlx::Row;
+use std::sync::{Arc, Mutex};
 use tauri::{Emitter, Listener, Manager, RunEvent};
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -254,10 +254,7 @@ async fn force_sync(app: tauri::AppHandle) -> Result<(), String> {
 /// - `duration_minutes > 0`: pause for that many minutes
 /// - `duration_minutes == 0`: resume immediately (unpause)
 #[tauri::command]
-fn pause_border(
-    app: tauri::AppHandle,
-    duration_minutes: i32,
-) -> Result<(), String> {
+fn pause_border(app: tauri::AppHandle, duration_minutes: i32) -> Result<(), String> {
     let managed = app.state::<Mutex<PauseState>>();
     let mut state = managed.lock().map_err(|e| e.to_string())?;
 
@@ -271,8 +268,11 @@ fn pause_border(
 
     // Emit the minutes value so the overlay can compute expiry locally.
     // A value of 0 means "resume".
-    app.emit("border-paused", serde_json::json!({ "minutes": duration_minutes }))
-        .map_err(|e| e.to_string())
+    app.emit(
+        "border-paused",
+        serde_json::json!({ "minutes": duration_minutes }),
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// Return the list of connected monitors/displays.
@@ -294,7 +294,12 @@ fn get_available_monitors() -> Vec<window_manager::MonitorInfo> {
 
 /// Best-effort cleanup of keyring entries for a given service.
 fn clear_keyring_entries(service: &str) {
-    for key in &["refresh_token", "access_token", "token_expiry", "account_email"] {
+    for key in &[
+        "refresh_token",
+        "access_token",
+        "token_expiry",
+        "account_email",
+    ] {
         if let Ok(entry) = keyring::Entry::new(service, key) {
             let _ = entry.delete_credential();
         }
@@ -473,20 +478,26 @@ pub fn run() {
                     let (thickness, selected_display) = {
                         let db = handle.state::<tauri_plugin_sql::DbInstances>();
                         let instances = db.0.read().await;
-                        if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
-                            let t = sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = 'border_thickness'")
-                                .fetch_optional(pool)
-                                .await
-                                .ok()
-                                .flatten()
-                                .map(|v| thickness_to_px(&v))
-                                .unwrap_or(DEFAULT_THICKNESS);
-                            let d = sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = 'selected_display'")
-                                .fetch_optional(pool)
-                                .await
-                                .ok()
-                                .flatten()
-                                .unwrap_or_else(|| "primary".to_string());
+                        if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) =
+                            instances.get("sqlite:morph.db")
+                        {
+                            let t = sqlx::query_scalar::<_, String>(
+                                "SELECT value FROM settings WHERE key = 'border_thickness'",
+                            )
+                            .fetch_optional(pool)
+                            .await
+                            .ok()
+                            .flatten()
+                            .map(|v| thickness_to_px(&v))
+                            .unwrap_or(DEFAULT_THICKNESS);
+                            let d = sqlx::query_scalar::<_, String>(
+                                "SELECT value FROM settings WHERE key = 'selected_display'",
+                            )
+                            .fetch_optional(pool)
+                            .await
+                            .ok()
+                            .flatten()
+                            .unwrap_or_else(|| "primary".to_string());
                             (t, d)
                         } else {
                             (DEFAULT_THICKNESS, "primary".to_string())
@@ -537,7 +548,9 @@ pub fn run() {
                 {
                     let db = onboarding_handle.state::<tauri_plugin_sql::DbInstances>();
                     let instances = db.0.read().await;
-                    if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
+                    if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) =
+                        instances.get("sqlite:morph.db")
+                    {
                         if let Err(e) = settings::seed_defaults_from_pool(pool).await {
                             eprintln!("[startup] Failed to seed defaults: {e}");
                         }
@@ -547,9 +560,11 @@ pub fn run() {
                 let show_onboarding = {
                     let db = onboarding_handle.state::<tauri_plugin_sql::DbInstances>();
                     let instances = db.0.read().await;
-                    if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
+                    if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) =
+                        instances.get("sqlite:morph.db")
+                    {
                         let val = sqlx::query_scalar::<_, String>(
-                            "SELECT value FROM settings WHERE key = 'onboarding_complete'"
+                            "SELECT value FROM settings WHERE key = 'onboarding_complete'",
                         )
                         .fetch_optional(pool)
                         .await
@@ -581,7 +596,9 @@ pub fn run() {
                                 {
                                     Ok(w) => w,
                                     Err(e) => {
-                                        eprintln!("[onboarding] Failed to create settings window: {e}");
+                                        eprintln!(
+                                            "[onboarding] Failed to create settings window: {e}"
+                                        );
                                         return;
                                     }
                                 }
@@ -764,20 +781,26 @@ fn setup_event_listeners(app: &tauri::App) {
                         let (thickness, selected_display) = {
                             let db = h.state::<tauri_plugin_sql::DbInstances>();
                             let instances = db.0.read().await;
-                            if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
-                                let t = sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = 'border_thickness'")
-                                    .fetch_optional(pool)
-                                    .await
-                                    .ok()
-                                    .flatten()
-                                    .map(|v| thickness_to_px(&v))
-                                    .unwrap_or(DEFAULT_THICKNESS);
-                                let d = sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = 'selected_display'")
-                                    .fetch_optional(pool)
-                                    .await
-                                    .ok()
-                                    .flatten()
-                                    .unwrap_or_else(|| "primary".to_string());
+                            if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) =
+                                instances.get("sqlite:morph.db")
+                            {
+                                let t = sqlx::query_scalar::<_, String>(
+                                    "SELECT value FROM settings WHERE key = 'border_thickness'",
+                                )
+                                .fetch_optional(pool)
+                                .await
+                                .ok()
+                                .flatten()
+                                .map(|v| thickness_to_px(&v))
+                                .unwrap_or(DEFAULT_THICKNESS);
+                                let d = sqlx::query_scalar::<_, String>(
+                                    "SELECT value FROM settings WHERE key = 'selected_display'",
+                                )
+                                .fetch_optional(pool)
+                                .await
+                                .ok()
+                                .flatten()
+                                .unwrap_or_else(|| "primary".to_string());
                                 (t, d)
                             } else {
                                 (DEFAULT_THICKNESS, "primary".to_string())

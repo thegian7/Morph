@@ -65,7 +65,10 @@ async fn get_all_settings_inner(pool: &SqlitePool) -> Result<Vec<(String, String
         .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(rows.iter().map(|r| (r.get("key"), r.get("value"))).collect())
+    Ok(rows
+        .iter()
+        .map(|r| (r.get("key"), r.get("value")))
+        .collect())
 }
 
 async fn seed_defaults_inner(pool: &SqlitePool) -> Result<(), String> {
@@ -161,7 +164,9 @@ mod tests {
     #[tokio::test]
     async fn test_seed_defaults_populates_expected_keys() {
         let pool = test_pool().await;
-        seed_defaults_inner(&pool).await.expect("seed_defaults failed");
+        seed_defaults_inner(&pool)
+            .await
+            .expect("seed_defaults failed");
 
         let all = get_all_settings_inner(&pool).await.expect("get_all failed");
         let keys: Vec<&str> = all.iter().map(|(k, _)| k.as_str()).collect();
