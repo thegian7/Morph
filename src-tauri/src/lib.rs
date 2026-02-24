@@ -26,9 +26,11 @@ use window_manager::macos::MacOSOverlayManager;
 use window_manager::OverlayManager;
 
 /// Default border thickness in logical pixels (maps to "medium").
+#[cfg(target_os = "macos")]
 const DEFAULT_THICKNESS: f64 = 16.0;
 
 /// Convert a thickness setting name to logical pixels.
+#[cfg(target_os = "macos")]
 fn thickness_to_px(name: &str) -> f64 {
     match name {
         "thin" => 8.0,
