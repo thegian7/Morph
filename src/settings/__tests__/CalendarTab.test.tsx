@@ -23,9 +23,7 @@ describe('CalendarTab', () => {
     render(<CalendarTab />);
     expect(screen.getByText('Calendar Connections')).toBeDefined();
     expect(
-      screen.getByText(
-        'Connect your calendars to see upcoming events on the border.',
-      ),
+      screen.getByText('Connect your calendars to see upcoming events on the border.'),
     ).toBeDefined();
   });
 

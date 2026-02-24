@@ -13,13 +13,48 @@ const STEPS = [
 ] as const;
 
 const COLOR_PHASES = [
-  { situation: 'Nothing for 60+ min', color: 'bg-green-400', label: 'Green', feel: 'Deep focus zone' },
-  { situation: 'Meeting in ~30 min', color: 'bg-green-400', label: 'Soft green', feel: 'Subconscious nudge' },
-  { situation: 'Meeting in ~15 min', color: 'bg-yellow-400', label: 'Yellow-green', feel: 'Body starts preparing' },
-  { situation: 'Meeting in ~5 min', color: 'bg-amber-400', label: 'Warm amber', feel: 'Time to wrap up' },
-  { situation: 'Meeting in ~2 min', color: 'bg-orange-400', label: 'Orange', feel: 'Transition imminent' },
-  { situation: 'In a meeting (early)', color: 'bg-green-500', label: 'Calm green', feel: 'Settled in' },
-  { situation: 'In a meeting (late)', color: 'bg-purple-400', label: 'Soft purple', feel: 'Approaching the end' },
+  {
+    situation: 'Nothing for 60+ min',
+    color: 'bg-green-400',
+    label: 'Green',
+    feel: 'Deep focus zone',
+  },
+  {
+    situation: 'Meeting in ~30 min',
+    color: 'bg-green-400',
+    label: 'Soft green',
+    feel: 'Subconscious nudge',
+  },
+  {
+    situation: 'Meeting in ~15 min',
+    color: 'bg-yellow-400',
+    label: 'Yellow-green',
+    feel: 'Body starts preparing',
+  },
+  {
+    situation: 'Meeting in ~5 min',
+    color: 'bg-amber-400',
+    label: 'Warm amber',
+    feel: 'Time to wrap up',
+  },
+  {
+    situation: 'Meeting in ~2 min',
+    color: 'bg-orange-400',
+    label: 'Orange',
+    feel: 'Transition imminent',
+  },
+  {
+    situation: 'In a meeting (early)',
+    color: 'bg-green-500',
+    label: 'Calm green',
+    feel: 'Settled in',
+  },
+  {
+    situation: 'In a meeting (late)',
+    color: 'bg-purple-400',
+    label: 'Soft purple',
+    feel: 'Approaching the end',
+  },
   { situation: 'Overtime', color: 'bg-purple-600', label: 'Deep purple', feel: "Time's up" },
 ];
 
@@ -55,17 +90,14 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Welcome to Morph</h2>
           <p className="text-sm text-gray-600 leading-relaxed">
-            Morph paints a subtle, color-changing border around your screen based on
-            your calendar. Green when you have space. Amber when a meeting is
-            approaching. Purple when time's up.
+            Morph paints a subtle, color-changing border around your screen based on your calendar.
+            Green when you have space. Amber when a meeting is approaching. Purple when time's up.
           </p>
           <p className="text-sm text-gray-600 leading-relaxed">
-            No alarms. No pop-ups. Just color in your peripheral vision — the way your
-            brain processes time best.
+            No alarms. No pop-ups. Just color in your peripheral vision — the way your brain
+            processes time best.
           </p>
-          <p className="text-sm text-gray-500">
-            Let's get you set up in about 30 seconds.
-          </p>
+          <p className="text-sm text-gray-500">Let's get you set up in about 30 seconds.</p>
         </div>
       )}
 
@@ -73,8 +105,8 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Connect your calendar</h2>
           <p className="text-sm text-gray-600 leading-relaxed">
-            Morph reads your upcoming events to decide which color to show. Connect
-            Google Calendar or Microsoft 365 to get started.
+            Morph reads your upcoming events to decide which color to show. Connect Google Calendar
+            or Microsoft 365 to get started.
           </p>
 
           <button
@@ -89,11 +121,10 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
               Google users: "unverified app" warning
             </p>
             <p className="text-xs text-amber-700 leading-relaxed">
-              Google will show a warning that Morph is "not verified." This is
-              normal for beta apps and does not mean it's unsafe.
-              To continue: click <strong>Advanced</strong>, then{' '}
-              <strong>Go to Morph (unsafe)</strong>. Morph only reads your calendar
-              event times and titles — nothing else.
+              Google will show a warning that Morph is "not verified." This is normal for beta apps
+              and does not mean it's unsafe. To continue: click <strong>Advanced</strong>, then{' '}
+              <strong>Go to Morph (unsafe)</strong>. Morph only reads your calendar event times and
+              titles — nothing else.
             </p>
           </div>
 
@@ -107,8 +138,8 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">What the colors mean</h2>
           <p className="text-sm text-gray-600 mb-3">
-            Colors shift gradually — your brain absorbs the change without ever having
-            to "check the time."
+            Colors shift gradually — your brain absorbs the change without ever having to "check the
+            time."
           </p>
 
           <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -143,13 +174,12 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">You're all set</h2>
           <p className="text-sm text-gray-600 leading-relaxed">
-            Morph is running in your menu bar. The border will appear automatically
-            based on your calendar events.
+            Morph is running in your menu bar. The border will appear automatically based on your
+            calendar events.
           </p>
           <p className="text-sm text-gray-600 leading-relaxed">
-            You can adjust border thickness, color palette, and more from these
-            settings at any time. Right-click the menu bar icon to access quick
-            controls.
+            You can adjust border thickness, color palette, and more from these settings at any
+            time. Right-click the menu bar icon to access quick controls.
           </p>
         </div>
       )}
@@ -159,9 +189,7 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
         <button
           onClick={() => setStep((s) => Math.max(1, s - 1))}
           className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-            step === 1
-              ? 'text-gray-300 cursor-default'
-              : 'text-gray-600 hover:bg-gray-100'
+            step === 1 ? 'text-gray-300 cursor-default' : 'text-gray-600 hover:bg-gray-100'
           }`}
           disabled={step === 1}
         >

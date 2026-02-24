@@ -64,7 +64,7 @@ export default function GeneralTab() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-900">Launch at login</p>
-            <p className="text-sm text-gray-500">Start LightTime automatically when you log in</p>
+            <p className="text-sm text-gray-500">Start Morph automatically when you log in</p>
           </div>
           <button
             onClick={handleToggleLaunch}
@@ -88,7 +88,9 @@ export default function GeneralTab() {
       {monitors.length > 1 && (
         <section>
           <p className="text-sm font-medium text-gray-900 mb-2">Display</p>
-          <p className="text-sm text-gray-500 mb-3">Choose which monitor shows the border overlay.</p>
+          <p className="text-sm text-gray-500 mb-3">
+            Choose which monitor shows the border overlay.
+          </p>
           <div className="flex flex-wrap gap-3">
             {monitors.map((monitor) => {
               const isSelected = selectedDisplay === monitor.id;
@@ -168,7 +170,6 @@ export default function GeneralTab() {
           </div>
         )}
       </section>
-
     </div>
   );
 }

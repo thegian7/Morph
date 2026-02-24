@@ -70,7 +70,7 @@ The `keyring` crate (v3) provides cross-platform credential storage:
 - **Windows:** Windows Credential Manager
 - **Linux:** Secret Service (GNOME Keyring / KDE Wallet)
 
-We store three entries under service name `com.lighttime.google-oauth`:
+We store three entries under service name `com.morph.google-oauth`:
 - `access_token` — short-lived (~1 hour)
 - `refresh_token` — long-lived (until revoked)
 - `token_expiry` — ISO 8601 datetime string
@@ -107,7 +107,7 @@ To run this spike (or the production app), you need:
 4. Go to **APIs & Services > Credentials**
 5. Click **Create Credentials > OAuth Client ID**
 6. Choose **Desktop app** as the application type
-7. Name it (e.g., "LightTime Desktop")
+7. Name it (e.g., "Morph Desktop")
 8. Copy the **Client ID** (you don't need the Client Secret for PKCE)
 9. Go to **APIs & Services > OAuth consent screen**
 10. Configure the consent screen (External for testing, Internal for Workspace)

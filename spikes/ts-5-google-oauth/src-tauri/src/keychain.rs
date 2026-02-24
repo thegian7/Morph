@@ -1,6 +1,6 @@
 use keyring::Entry;
 
-const SERVICE_NAME: &str = "com.lighttime.google-oauth";
+const SERVICE_NAME: &str = "com.morph.google-oauth";
 
 /// Store a value in the OS keychain
 fn set_entry(key: &str, value: &str) -> Result<(), String> {

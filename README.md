@@ -33,16 +33,16 @@ Timeqube proved the concept works with a $110 LED cube. Morph brings it to your 
 
 Morph creates four thin, transparent windows at the edges of your screen — top, bottom, left, right. Together they form a border that shifts color based on what's next on your calendar:
 
-| What's happening | Border color | You feel |
-|---|---|---|
-| Nothing for 60+ min | Barely-visible green | Deep focus zone |
-| Meeting in ~30 min | Soft green, slow pulse | Subconscious nudge |
-| Meeting in ~15 min | Yellow-green | Body starts preparing |
-| Meeting in ~5 min | Warm amber | Time to wrap up |
-| Meeting in ~2 min | Orange | Transition imminent |
-| In a meeting (early) | Calm green | Settled in |
-| In a meeting (late) | Soft purple | Approaching the end |
-| Overtime | Deeper purple, pulse | Time's up — gently |
+| What's happening     | Border color           | You feel              |
+| -------------------- | ---------------------- | --------------------- |
+| Nothing for 60+ min  | Barely-visible green   | Deep focus zone       |
+| Meeting in ~30 min   | Soft green, slow pulse | Subconscious nudge    |
+| Meeting in ~15 min   | Yellow-green           | Body starts preparing |
+| Meeting in ~5 min    | Warm amber             | Time to wrap up       |
+| Meeting in ~2 min    | Orange                 | Transition imminent   |
+| In a meeting (early) | Calm green             | Settled in            |
+| In a meeting (late)  | Soft purple            | Approaching the end   |
+| Overtime             | Deeper purple, pulse   | Time's up — gently    |
 
 Colors transition smoothly over seconds, not instantly. Your brain absorbs the change without ever having to "check the time."
 
@@ -129,6 +129,7 @@ Morph is in early beta. A few things to be aware of:
 When connecting Google Calendar, Google will display a warning that Morph is "not verified by Google." This is expected — Google's app verification process takes weeks and requires a privacy policy review. Morph only reads your calendar event times and titles to determine border colors. No data leaves your machine.
 
 To proceed past the warning:
+
 1. Click **Advanced**
 2. Click **Go to Morph (unsafe)**
 3. Grant the requested calendar permissions
@@ -136,6 +137,7 @@ To proceed past the warning:
 ### macOS: Gatekeeper warning
 
 Since Morph is not yet signed with an Apple Developer certificate, macOS will block it on first launch. To open it:
+
 1. Right-click (or Control-click) the app
 2. Select **Open** from the context menu
 3. Click **Open** in the confirmation dialog
@@ -145,6 +147,7 @@ You only need to do this once.
 ### Windows: SmartScreen warning
 
 Windows Defender SmartScreen may show a warning for unrecognized apps. To proceed:
+
 1. Click **More info**
 2. Click **Run anyway**
 

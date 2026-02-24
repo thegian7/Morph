@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  getDefaultPresets,
-  createPreset,
-  startTimerFromPreset,
-  validatePreset,
-} from '../presets';
+import { getDefaultPresets, createPreset, startTimerFromPreset, validatePreset } from '../presets';
 import type { TimerPreset } from '../types';
 
 // ---------------------------------------------------------------------------

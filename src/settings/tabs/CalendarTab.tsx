@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { emit, listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 
 interface ProviderStatus {
   connected: boolean;
@@ -43,6 +44,19 @@ export default function CalendarTab() {
   const [lastGlobalSync, setLastGlobalSync] = useState<string | undefined>();
 
   useEffect(() => {
+    // Fetch current provider statuses on mount
+    invoke<{ provider: string; status: ProviderStatus }[]>('get_provider_statuses')
+      .then((statuses) => {
+        setProviders((prev) => {
+          const next = { ...prev };
+          for (const s of statuses) {
+            next[s.provider] = s.status;
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+
     const unlistenStatus = listen<{ provider: string; status: ProviderStatus }>(
       'provider-status-update',
       (event) => {
@@ -88,10 +102,7 @@ export default function CalendarTab() {
         {PROVIDERS.map((config) => {
           const status = providers[config.id];
           return (
-            <div
-              key={config.id}
-              className="border border-gray-200 rounded-lg p-4"
-            >
+            <div key={config.id} className="border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div
@@ -100,9 +111,7 @@ export default function CalendarTab() {
                     {config.name}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {config.label}
-                    </p>
+                    <p className="text-sm font-medium text-gray-900">{config.label}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <div
                         className={`w-2 h-2 rounded-full ${status?.connected ? 'bg-green-500' : 'bg-gray-300'}`}
@@ -140,11 +149,7 @@ export default function CalendarTab() {
                   Last synced: {formatRelativeTime(status.lastSync)}
                 </p>
               )}
-              {status?.error && (
-                <p className="text-xs text-red-500 mt-2 ml-11">
-                  {status.error}
-                </p>
-              )}
+              {status?.error && <p className="text-xs text-red-500 mt-2 ml-11">{status.error}</p>}
             </div>
           );
         })}

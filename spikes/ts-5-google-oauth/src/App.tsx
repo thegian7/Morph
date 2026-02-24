@@ -94,7 +94,7 @@ function App() {
 
   return (
     <main className="container">
-      <h1>LightTime - Google Calendar OAuth Spike</h1>
+      <h1>Morph - Google Calendar OAuth Spike</h1>
 
       <div className="status-bar">
         <span className={`status-dot ${isAuthenticated ? "green" : "red"}`} />

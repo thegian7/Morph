@@ -29,11 +29,14 @@ function renderWithSettings(overrides: Partial<SettingsContextValue> = {}) {
     ...overrides,
   };
 
-  return { ...render(
-    <SettingsContext.Provider value={value}>
-      <GeneralTab />
-    </SettingsContext.Provider>,
-  ), settingsValue: value };
+  return {
+    ...render(
+      <SettingsContext.Provider value={value}>
+        <GeneralTab />
+      </SettingsContext.Provider>,
+    ),
+    settingsValue: value,
+  };
 }
 
 afterEach(() => {
@@ -95,7 +98,15 @@ describe('GeneralTab', () => {
   describe('Display Picker', () => {
     it('does not show display section when only one monitor', async () => {
       mockInvoke.mockResolvedValue([
-        { id: 'primary', name: 'Built-in Display', width: 1728, height: 1117, x: 0, y: 0, is_primary: true },
+        {
+          id: 'primary',
+          name: 'Built-in Display',
+          width: 1728,
+          height: 1117,
+          x: 0,
+          y: 0,
+          is_primary: true,
+        },
       ]);
       renderWithSettings();
 
@@ -109,8 +120,24 @@ describe('GeneralTab', () => {
 
     it('shows display section when multiple monitors are connected', async () => {
       mockInvoke.mockResolvedValue([
-        { id: 'primary', name: 'Built-in Display', width: 1728, height: 1117, x: 0, y: 0, is_primary: true },
-        { id: 'DELL U2723QE:1728x0', name: 'DELL U2723QE', width: 2560, height: 1440, x: 1728, y: 0, is_primary: false },
+        {
+          id: 'primary',
+          name: 'Built-in Display',
+          width: 1728,
+          height: 1117,
+          x: 0,
+          y: 0,
+          is_primary: true,
+        },
+        {
+          id: 'DELL U2723QE:1728x0',
+          name: 'DELL U2723QE',
+          width: 2560,
+          height: 1440,
+          x: 1728,
+          y: 0,
+          is_primary: false,
+        },
       ]);
       renderWithSettings();
 
@@ -125,8 +152,24 @@ describe('GeneralTab', () => {
 
     it('calls setSetting when clicking a display button', async () => {
       mockInvoke.mockResolvedValue([
-        { id: 'primary', name: 'Built-in Display', width: 1728, height: 1117, x: 0, y: 0, is_primary: true },
-        { id: 'DELL U2723QE:1728x0', name: 'DELL U2723QE', width: 2560, height: 1440, x: 1728, y: 0, is_primary: false },
+        {
+          id: 'primary',
+          name: 'Built-in Display',
+          width: 1728,
+          height: 1117,
+          x: 0,
+          y: 0,
+          is_primary: true,
+        },
+        {
+          id: 'DELL U2723QE:1728x0',
+          name: 'DELL U2723QE',
+          width: 2560,
+          height: 1440,
+          x: 1728,
+          y: 0,
+          is_primary: false,
+        },
       ]);
       const { settingsValue } = renderWithSettings();
 
@@ -135,7 +178,10 @@ describe('GeneralTab', () => {
       });
 
       fireEvent.click(screen.getByText('DELL U2723QE'));
-      expect(settingsValue.setSetting).toHaveBeenCalledWith('selected_display', 'DELL U2723QE:1728x0');
+      expect(settingsValue.setSetting).toHaveBeenCalledWith(
+        'selected_display',
+        'DELL U2723QE:1728x0',
+      );
     });
   });
 });

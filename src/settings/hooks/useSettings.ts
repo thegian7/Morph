@@ -34,19 +34,16 @@ export function useSettingsProvider(): SettingsContextValue {
     [settings],
   );
 
-  const setSetting = useCallback(
-    (key: string, value: string): void => {
-      invoke('set_setting', { key, value }).catch((err) => {
-        console.error(`Failed to save setting "${key}":`, err);
-      });
-      setSettings((prev) => {
-        const next = new Map(prev);
-        next.set(key, value);
-        return next;
-      });
-    },
-    [],
-  );
+  const setSetting = useCallback((key: string, value: string): void => {
+    invoke('set_setting', { key, value }).catch((err) => {
+      console.error(`Failed to save setting "${key}":`, err);
+    });
+    setSettings((prev) => {
+      const next = new Map(prev);
+      next.set(key, value);
+      return next;
+    });
+  }, []);
 
   return { settings, loading, getSetting, setSetting };
 }

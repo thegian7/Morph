@@ -1,4 +1,4 @@
-# LightTime Color Palette Specification
+# Morph Color Palette Specification
 
 **Inspired by:** Timeqube's green → yellow → orange → purple progression
 **Design philosophy:** Ambient, peripheral, non-alarming. Purple end-state instead of red avoids stress response and improves colorblind accessibility.
@@ -83,7 +83,7 @@ For red-green colorblind users (~8% of males). Uses a blue → white → orange 
 
 ## Comparison to Timeqube
 
-| Aspect                 | Timeqube       | LightTime                                                        |
+| Aspect                 | Timeqube       | Morph                                                            |
 | ---------------------- | -------------- | ---------------------------------------------------------------- |
 | Green (plenty of time) | Yes            | Yes — similar soft green                                         |
 | Yellow (midpoint)      | Yes            | Yes — warm amber/yellow                                          |

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // Mock Tauri APIs before importing the module under test.
 vi.mock('@tauri-apps/api/event', () => ({
@@ -10,14 +10,15 @@ vi.mock('@tauri-apps/api/window', () => ({
   })),
 }));
 
-import {
-  computePulseOpacity,
-  createPulseController,
-} from '../overlay.js';
+import { computePulseOpacity, createPulseController } from '../overlay.js';
 
-/** Create a minimal mock HTMLElement with a style object. */
+/** Create a minimal mock HTMLElement with a style object supporting setProperty. */
 function mockElement(): HTMLElement {
-  return { style: {} } as unknown as HTMLElement;
+  const style: Record<string, unknown> = {};
+  style.setProperty = (name: string, value: string) => {
+    style[name] = value;
+  };
+  return { style } as unknown as HTMLElement;
 }
 
 describe('computePulseOpacity', () => {
@@ -72,39 +73,7 @@ describe('computePulseOpacity', () => {
 });
 
 describe('createPulseController', () => {
-  let rafCallbacks: Array<(timestamp: number) => void>;
-  let rafIdCounter: number;
-  let cancelledIds: Set<number>;
-
-  beforeEach(() => {
-    rafCallbacks = [];
-    rafIdCounter = 1;
-    cancelledIds = new Set();
-
-    vi.stubGlobal('requestAnimationFrame', (cb: (timestamp: number) => void) => {
-      const id = rafIdCounter++;
-      rafCallbacks.push(cb);
-      return id;
-    });
-
-    vi.stubGlobal('cancelAnimationFrame', (id: number) => {
-      cancelledIds.add(id);
-    });
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  /** Flush all pending rAF callbacks with the given timestamp. */
-  function flushRAF(timestamp: number) {
-    const cbs = rafCallbacks.splice(0);
-    for (const cb of cbs) {
-      cb(timestamp);
-    }
-  }
-
-  it('starts animation when pulseSpeed > 0', () => {
+  it('applies CSS animation when pulseSpeed > 0', () => {
     const el = mockElement();
     const ctrl = createPulseController(el);
 
@@ -115,11 +84,14 @@ describe('createPulseController', () => {
       phase: 'overtime',
     });
 
-    // A rAF should have been requested
-    expect(rafCallbacks).toHaveLength(1);
+    expect(el.style.animation).toBe('pulse-opacity 2000ms ease-in-out infinite');
+    // CSS custom properties are set via setProperty on the style object
+    const style = el.style as unknown as Record<string, unknown>;
+    expect(style['--base-opacity']).toBe('0.6');
+    expect(style['--pulse-amplitude']).toBe('0.15');
   });
 
-  it('does not start animation when pulseSpeed is 0', () => {
+  it('sets static opacity when pulseSpeed is 0', () => {
     const el = mockElement();
     const ctrl = createPulseController(el);
 
@@ -130,7 +102,7 @@ describe('createPulseController', () => {
       phase: 'free-deep',
     });
 
-    expect(rafCallbacks).toHaveLength(0);
+    expect(el.style.animation).toBe('');
     expect(el.style.opacity).toBe('0.3');
   });
 
@@ -155,7 +127,7 @@ describe('createPulseController', () => {
     expect(el.style.backgroundColor).toBe('#E8A838');
   });
 
-  it('updates opacity on each animation frame', () => {
+  it('updates animation duration when pulseSpeed changes', () => {
     const el = mockElement();
     const ctrl = createPulseController(el);
 
@@ -165,17 +137,18 @@ describe('createPulseController', () => {
       pulseSpeed: 2000,
       phase: 'overtime',
     });
+    expect(el.style.animation).toBe('pulse-opacity 2000ms ease-in-out infinite');
 
-    // Simulate frame at quarter cycle
-    flushRAF(500);
-    expect(Number(el.style.opacity)).toBeCloseTo(0.75, 10);
-
-    // Simulate frame at three-quarter cycle
-    flushRAF(1500);
-    expect(Number(el.style.opacity)).toBeCloseTo(0.45, 10);
+    ctrl.update({
+      color: '#FF0000',
+      opacity: 0.6,
+      pulseSpeed: 3000,
+      phase: 'warning-mid',
+    });
+    expect(el.style.animation).toBe('pulse-opacity 3000ms ease-in-out infinite');
   });
 
-  it('stops animation and resets opacity when pulseSpeed becomes 0', () => {
+  it('removes animation and sets static opacity when pulseSpeed becomes 0', () => {
     const el = mockElement();
     const ctrl = createPulseController(el);
 
@@ -186,7 +159,7 @@ describe('createPulseController', () => {
       pulseSpeed: 2000,
       phase: 'overtime',
     });
-    expect(rafCallbacks).toHaveLength(1);
+    expect(el.style.animation).toBe('pulse-opacity 2000ms ease-in-out infinite');
 
     // Stop pulsing
     ctrl.update({
@@ -196,35 +169,8 @@ describe('createPulseController', () => {
       phase: 'free-deep',
     });
 
-    // cancelAnimationFrame should have been called
-    expect(cancelledIds.size).toBe(1);
-    // Opacity should be set to the base value
+    expect(el.style.animation).toBe('');
     expect(el.style.opacity).toBe('0.3');
-  });
-
-  it('does not start duplicate animations on repeated updates with pulseSpeed > 0', () => {
-    const el = mockElement();
-    const ctrl = createPulseController(el);
-
-    ctrl.update({
-      color: '#FF0000',
-      opacity: 0.6,
-      pulseSpeed: 2000,
-      phase: 'overtime',
-    });
-
-    const callbacksBefore = rafCallbacks.length;
-
-    // Update again with different speed — should NOT request a second rAF
-    ctrl.update({
-      color: '#FF0000',
-      opacity: 0.6,
-      pulseSpeed: 3000,
-      phase: 'warning-mid',
-    });
-
-    // No additional rAF requested (the existing loop will pick up the new speed)
-    expect(rafCallbacks.length).toBe(callbacksBefore);
   });
 
   it('restarts animation after stopping', () => {
@@ -247,9 +193,7 @@ describe('createPulseController', () => {
       phase: 'free-deep',
     });
 
-    rafCallbacks = [];
-
-    // Restart
+    // Restart with different speed
     ctrl.update({
       color: '#E8A838',
       opacity: 0.7,
@@ -257,10 +201,10 @@ describe('createPulseController', () => {
       phase: 'warning-mid',
     });
 
-    expect(rafCallbacks).toHaveLength(1);
+    expect(el.style.animation).toBe('pulse-opacity 3000ms ease-in-out infinite');
   });
 
-  it('destroy cancels the animation', () => {
+  it('destroy clears the animation', () => {
     const el = mockElement();
     const ctrl = createPulseController(el);
 
@@ -272,7 +216,7 @@ describe('createPulseController', () => {
     });
 
     ctrl.destroy();
-    expect(cancelledIds.size).toBe(1);
+    expect(el.style.animation).toBe('');
   });
 
   it('destroy is safe to call when no animation is running', () => {
@@ -281,6 +225,6 @@ describe('createPulseController', () => {
 
     // No animation started, destroy should not throw
     ctrl.destroy();
-    expect(cancelledIds.size).toBe(0);
+    expect(el.style.animation).toBe('');
   });
 });

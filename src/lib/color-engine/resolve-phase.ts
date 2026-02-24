@@ -13,7 +13,8 @@ export function parseEvents(events: CalendarEvent[], settings?: UserSettings): P
   return events
     .filter((e) => {
       if (e.ignored || e.isAllDay) return false;
-      if (ignoredCals.length > 0 && e.calendarId && ignoredCals.includes(e.calendarId)) return false;
+      if (ignoredCals.length > 0 && e.calendarId && ignoredCals.includes(e.calendarId))
+        return false;
       return true;
     })
     .map((e) => ({

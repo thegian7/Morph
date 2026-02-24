@@ -237,9 +237,7 @@ describe('smooth in-session progression', () => {
   });
 
   it('phases progress in order through the session', () => {
-    const phases = [0.1, 0.3, 0.5, 0.7, 0.85, 0.95, 1.05].map(
-      (p) => stateAtProgress(p).phase,
-    );
+    const phases = [0.1, 0.3, 0.5, 0.7, 0.85, 0.95, 1.05].map((p) => stateAtProgress(p).phase);
     expect(phases).toEqual([
       'in-session-early',
       'in-session-early',
@@ -260,7 +258,7 @@ describe('boundary transitions use interpolation', () => {
   });
 
   it('at 40% (exactly mid boundary), color is mid color', () => {
-    const state = stateAtProgress(0.40);
+    const state = stateAtProgress(0.4);
     expect(state.phase).toBe('in-session-mid');
     expect(state.color).toBe(AMBIENT_PALETTE['in-session-mid'].hex);
   });

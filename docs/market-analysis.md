@@ -29,7 +29,7 @@
   - No cross-platform equivalent for remote/hybrid workers
 - **Market fit:** Primarily therapists and coaches. Some ADHD self-management users. Small company, niche market.
 
-**This is the product LightTime most directly replaces.** The value proposition is: "Timeqube's ambient color concept, but built into your screen, integrated with your calendar, and available for $7/mo instead of $110 hardware."
+**This is the product Morph most directly replaces.** The value proposition is: "Timeqube's ambient color concept, but built into your screen, integrated with your calendar, and available for $7/mo instead of $110 hardware."
 
 #### Time Timer (Physical + App)
 
@@ -46,7 +46,7 @@
   - No calendar integration
   - Physical devices are standalone; apps are basic countdown timers
   - No desktop overlay or always-on-screen presence
-- **Differentiation from LightTime:** Time Timer requires conscious checking. LightTime is designed to be absorbed subconsciously through peripheral vision. Fundamentally different interaction model.
+- **Differentiation from Morph:** Time Timer requires conscious checking. Morph is designed to be absorbed subconsciously through peripheral vision. Fundamentally different interaction model.
 
 ### 1.2 Adjacent Software Competitors
 
@@ -86,7 +86,7 @@
 #### Fantastical
 
 - **Pricing:** $4.75-6.99/mo (annual billing)
-- **Relevance:** Premium calendar app. Potential integration partner rather than competitor. LightTime reads calendar data but does not replace the calendar UI.
+- **Relevance:** Premium calendar app. Potential integration partner rather than competitor. Morph reads calendar data but does not replace the calendar UI.
 
 #### Sunsama
 
@@ -141,7 +141,7 @@ The broader "neurodiversity-aware workplace tools" market is also rapidly growin
 
 - The ADHD subreddits (r/ADHD: 2M+ members, r/AuDHD: growing rapidly) consistently discuss time blindness as a top daily challenge
 - "Visual timers" and "ambient time awareness" are frequently requested
-- Users describe wanting time awareness that does not require active checking — exactly LightTime's value prop
+- Users describe wanting time awareness that does not require active checking — exactly Morph's value prop
 - The phrase "time blindness" has entered mainstream vocabulary, with coverage in major outlets
 
 **Professional signals:**
@@ -160,7 +160,7 @@ Based on community research, people with ADHD/time blindness consistently expres
 4. **Affordable** — $100+ hardware is a barrier. Many are already spending on multiple ADHD tools.
 5. **Transition support** — The hardest moment is switching between tasks/meetings. Current tools don't handle this well.
 
-LightTime addresses all five.
+Morph addresses all five.
 
 ---
 
@@ -168,17 +168,17 @@ LightTime addresses all five.
 
 ### 3.1 Comparable Product Pricing
 
-| Product                  | Price (Monthly) | Price (Annual Equiv.) | Type                |
-| ------------------------ | --------------- | --------------------- | ------------------- |
-| Brain.fm                 | $9.99/mo        | $5.83/mo              | Focus music         |
-| Focusmate Plus           | $9.99/mo        | $6.99/mo              | Virtual co-working  |
-| Centered/Sukha Premium   | $10/mo          | $6.67/mo              | Flow state app      |
-| Llama Life               | $6/mo           | $3.25/mo              | ADHD task timer     |
-| Fantastical              | $6.99/mo        | $4.75/mo              | Calendar app        |
-| Tiimo Pro                | $10-12/mo       | $3.50-4.50/mo         | ADHD visual planner |
-| Sunsama                  | $20/mo          | $16/mo                | Calendar planner    |
-| Focus@Will               | $7.49/mo        | $4.37/mo              | Focus music         |
-| **LightTime (proposed)** | **$7/mo**       | **~$4.67/mo**         | **Ambient timer**   |
+| Product                | Price (Monthly) | Price (Annual Equiv.) | Type                |
+| ---------------------- | --------------- | --------------------- | ------------------- |
+| Brain.fm               | $9.99/mo        | $5.83/mo              | Focus music         |
+| Focusmate Plus         | $9.99/mo        | $6.99/mo              | Virtual co-working  |
+| Centered/Sukha Premium | $10/mo          | $6.67/mo              | Flow state app      |
+| Llama Life             | $6/mo           | $3.25/mo              | ADHD task timer     |
+| Fantastical            | $6.99/mo        | $4.75/mo              | Calendar app        |
+| Tiimo Pro              | $10-12/mo       | $3.50-4.50/mo         | ADHD visual planner |
+| Sunsama                | $20/mo          | $16/mo                | Calendar planner    |
+| Focus@Will             | $7.49/mo        | $4.37/mo              | Focus music         |
+| **Morph (proposed)**   | **$7/mo**       | **~$4.67/mo**         | **Ambient timer**   |
 
 ### 3.2 Pricing Assessment
 
@@ -294,17 +294,17 @@ The PRD targets $10K MRR at 12 months. At $7/mo this requires ~1,430 paid subscr
 
 Based on the product's core identity (peripheral, ambient, color-based, threshold-aware), here are alternative names to explore:
 
-| Name          | Rationale                                                        | Potential Conflicts                                                                  |
-| ------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **Drift**     | Evokes the gentle passage of time; "time drifts by"              | "Drift" is a customer messaging platform (drift.com). Would need checking.           |
-| **Tinge**     | A slight trace of color; exactly what the border is              | Uncommon word; unlikely conflicts. May be too subtle.                                |
-| **Bloom**     | Color blooming at edges; organic, gentle                         | Common app name. Needs checking.                                                     |
-| **Soften**    | The opposite of jarring alarms; describes the experience         | Unusual as an app name; distinctive.                                                 |
-| **Threshold** | Where time transitions happen; the border is a literal threshold | Long name but highly descriptive. No obvious conflicts.                              |
-| **Ember**     | Warm glow, color transition (green-amber-red), always present    | "Ember.js" framework has strong SEO. "Ember" climate app exists.                     |
-| **Penumbra**  | The partial shadow between full light and darkness; transitional | Distinctive, atmospheric. Some indie game conflicts.                                 |
-| **Margin**    | The border of a page; the space between events                   | Simple, distinctive in app context. "Margin" finance app may conflict.               |
-| **LightTime** | (Current project name) Light + Time. Clean, memorable.           | "LightTime" GTD/to-do app exists on iOS/Android (Xiamen iScreen). Moderate conflict. |
+| Name          | Rationale                                                        | Potential Conflicts                                                              |
+| ------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Drift**     | Evokes the gentle passage of time; "time drifts by"              | "Drift" is a customer messaging platform (drift.com). Would need checking.       |
+| **Tinge**     | A slight trace of color; exactly what the border is              | Uncommon word; unlikely conflicts. May be too subtle.                            |
+| **Bloom**     | Color blooming at edges; organic, gentle                         | Common app name. Needs checking.                                                 |
+| **Soften**    | The opposite of jarring alarms; describes the experience         | Unusual as an app name; distinctive.                                             |
+| **Threshold** | Where time transitions happen; the border is a literal threshold | Long name but highly descriptive. No obvious conflicts.                          |
+| **Ember**     | Warm glow, color transition (green-amber-red), always present    | "Ember.js" framework has strong SEO. "Ember" climate app exists.                 |
+| **Penumbra**  | The partial shadow between full light and darkness; transitional | Distinctive, atmospheric. Some indie game conflicts.                             |
+| **Margin**    | The border of a page; the space between events                   | Simple, distinctive in app context. "Margin" finance app may conflict.           |
+| **Morph**     | (Current project name) Light + Time. Clean, memorable.           | "Morph" GTD/to-do app exists on iOS/Android (Xiamen iScreen). Moderate conflict. |
 
 ### 5.3 Naming Recommendations
 

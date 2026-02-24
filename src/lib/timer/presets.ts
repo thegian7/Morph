@@ -30,11 +30,7 @@ export function getDefaultPresets(): TimerPreset[] {
 let nextId = 1;
 
 /** Create a new custom preset. */
-export function createPreset(
-  name: string,
-  durationSeconds: number,
-  color?: string,
-): TimerPreset {
+export function createPreset(name: string, durationSeconds: number, color?: string): TimerPreset {
   return {
     id: `custom-${nextId++}`,
     name,
@@ -48,10 +44,7 @@ export function createPreset(
 // ---------------------------------------------------------------------------
 
 /** Build a running TimerState from a preset. */
-export function startTimerFromPreset(
-  preset: TimerPreset,
-  now: number = Date.now(),
-): TimerState {
+export function startTimerFromPreset(preset: TimerPreset, now: number = Date.now()): TimerState {
   return {
     status: 'running',
     durationSeconds: preset.durationSeconds,
@@ -66,30 +59,21 @@ export function startTimerFromPreset(
 // ---------------------------------------------------------------------------
 
 /** Validate a preset, returning any errors. */
-export function validatePreset(
-  preset: TimerPreset,
-): { valid: boolean; errors: string[] } {
+export function validatePreset(preset: TimerPreset): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   if (!preset.name || preset.name.trim().length === 0) {
     errors.push('Name is required');
   }
 
-  if (
-    typeof preset.durationSeconds !== 'number' ||
-    !Number.isFinite(preset.durationSeconds)
-  ) {
+  if (typeof preset.durationSeconds !== 'number' || !Number.isFinite(preset.durationSeconds)) {
     errors.push('Duration must be a finite number');
   } else {
     if (preset.durationSeconds < MIN_DURATION_SECONDS) {
-      errors.push(
-        `Duration must be at least ${MIN_DURATION_SECONDS} second`,
-      );
+      errors.push(`Duration must be at least ${MIN_DURATION_SECONDS} second`);
     }
     if (preset.durationSeconds > MAX_DURATION_SECONDS) {
-      errors.push(
-        `Duration must be at most ${MAX_DURATION_SECONDS} seconds (24 hours)`,
-      );
+      errors.push(`Duration must be at most ${MAX_DURATION_SECONDS} seconds (24 hours)`);
     }
   }
 

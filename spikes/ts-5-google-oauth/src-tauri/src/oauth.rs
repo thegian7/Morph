@@ -89,7 +89,7 @@ pub fn listen_for_callback() -> Result<String, String> {
         .ok_or_else(|| "No authorization code in callback".to_string())?;
 
     // Send a success page back to the browser
-    let html = "<html><body><h2>Authorization successful!</h2><p>You can close this tab and return to LightTime.</p></body></html>";
+    let html = "<html><body><h2>Authorization successful!</h2><p>You can close this tab and return to Morph.</p></body></html>";
     let response = tiny_http::Response::from_string(html)
         .with_header("Content-Type: text/html".parse::<tiny_http::Header>().unwrap());
     let _ = request.respond(response);

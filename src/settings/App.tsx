@@ -61,9 +61,7 @@ export default function App() {
       <div className="flex h-screen bg-white">
         {/* Sidebar navigation */}
         <nav className="w-48 border-r border-gray-200 bg-gray-50 p-4 flex flex-col">
-          <h1 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">
-            Morph
-          </h1>
+          <h1 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Morph</h1>
           <ul className="space-y-1">
             {tabs.map((tab) => (
               <li key={tab.id}>

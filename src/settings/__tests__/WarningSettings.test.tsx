@@ -31,15 +31,8 @@ function createMockSettings(overrides: Record<string, string> = {}): SettingsCon
   };
 }
 
-function renderWithSettings(
-  ui: React.ReactElement,
-  settingsValue: SettingsContextValue,
-) {
-  return render(
-    <SettingsContext.Provider value={settingsValue}>
-      {ui}
-    </SettingsContext.Provider>,
-  );
+function renderWithSettings(ui: React.ReactElement, settingsValue: SettingsContextValue) {
+  return render(<SettingsContext.Provider value={settingsValue}>{ui}</SettingsContext.Provider>);
 }
 
 describe('WarningSettings', () => {

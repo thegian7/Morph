@@ -1,28 +1,42 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: transparent;
-    }
-    #border {
-      width: 100%;
-      height: 100%;
-      background-color: transparent;
-      opacity: 0;
-      transition: background-color 2s ease-in-out, opacity 1s ease-in-out;
-      will-change: opacity;
-    }
-  </style>
-</head>
-<body>
-  <div id="border"></div>
-  <script type="module" src="./overlay.ts"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
+      @keyframes pulse-opacity {
+        0%,
+        100% {
+          opacity: calc(var(--base-opacity) - var(--pulse-amplitude));
+        }
+        50% {
+          opacity: calc(var(--base-opacity) + var(--pulse-amplitude));
+        }
+      }
+      #border {
+        width: 100%;
+        height: 100%;
+        background-color: transparent;
+        opacity: 0;
+        transition: background-color 2s ease-in-out;
+        will-change: opacity;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="border"></div>
+    <script type="module" src="./overlay.ts"></script>
+  </body>
 </html>

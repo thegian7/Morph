@@ -1,5 +1,5 @@
 /**
- * All 13 visual phases of the LightTime ambient border.
+ * All 13 visual phases of the Morph ambient border.
  * Each phase maps to a specific color, opacity, and pulse speed.
  */
 export type Phase =
@@ -61,7 +61,7 @@ export type Intensity = 'subtle' | 'normal' | 'vivid';
 export type PaletteName = 'ambient' | 'ocean';
 
 /** Which screen edges display the border. */
-export type BorderPosition = 'all' | 'top' | 'sides' | 'bottom';
+export type BorderPosition = 'all' | 'top' | 'sides' | 'bottom' | 'top-sides' | 'bottom-sides';
 
 /** Border thickness preset. */
 export type BorderThickness = 'thin' | 'medium' | 'thick';

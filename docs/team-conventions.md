@@ -13,11 +13,13 @@
 **Agents do NOT run any git commands.** All git operations (add, commit, branch, merge) are performed exclusively by the team lead. This prevents cross-contamination issues observed in Sprint 0 where agents accidentally committed each other's files.
 
 #### Agent responsibilities:
+
 - Write code and run tests in their assigned file zones
 - Use mutex locks for shared files
 - Signal "task complete" to the team lead when done
 
 #### Team lead responsibilities:
+
 - Review agent output
 - Stage specific files (`git add <file>` — never `git add .`)
 - Commit with conventional commit messages
@@ -146,17 +148,17 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 
 ### Scopes
 
-| Scope      | Component                      |
-| ---------- | ------------------------------ |
-| `overlay`  | Overlay engine (OE-\*)         |
-| `color`    | Color engine (CE-\*)           |
-| `cal`      | Calendar integrations (CAL-\*) |
-| `timer`    | Manual timer (MT-\*)           |
-| `settings` | Settings UI (SET-\*)           |
-| `tray`     | System tray (ST-\*)            |
-| `billing`  | Ko-fi tip jar & support (BL-\*)|
-| `dist`     | Distribution & updates (DU-\*) |
-| `infra`    | CI/CD, project config          |
+| Scope      | Component                       |
+| ---------- | ------------------------------- |
+| `overlay`  | Overlay engine (OE-\*)          |
+| `color`    | Color engine (CE-\*)            |
+| `cal`      | Calendar integrations (CAL-\*)  |
+| `timer`    | Manual timer (MT-\*)            |
+| `settings` | Settings UI (SET-\*)            |
+| `tray`     | System tray (ST-\*)             |
+| `billing`  | Ko-fi tip jar & support (BL-\*) |
+| `dist`     | Distribution & updates (DU-\*)  |
+| `infra`    | CI/CD, project config           |
 
 ### Examples
 
@@ -198,14 +200,14 @@ Sprint 0 has a bottleneck: TS-2, TS-3, TS-4 all depend on TS-1.
 
 ### Wave 1 (Day 1 — 6 agents active)
 
-| Agent          | Task                        | Dependencies |
-| -------------- | --------------------------- | ------------ |
-| `overlay-mac`  | TS-1: macOS overlay spike   | None         |
-| `google-cal`   | TS-5: Google OAuth spike    | None         |
-| `ms-cal`       | TS-6: MS Graph OAuth spike  | None         |
-| `color-engine` | CE-1: Color engine types    | None         |
-| `apple-cal`    | CAL-1: Calendar abstraction | None         |
-| `billing`      | BL-5: Remove billing remnants | None       |
+| Agent          | Task                          | Dependencies |
+| -------------- | ----------------------------- | ------------ |
+| `overlay-mac`  | TS-1: macOS overlay spike     | None         |
+| `google-cal`   | TS-5: Google OAuth spike      | None         |
+| `ms-cal`       | TS-6: MS Graph OAuth spike    | None         |
+| `color-engine` | CE-1: Color engine types      | None         |
+| `apple-cal`    | CAL-1: Calendar abstraction   | None         |
+| `billing`      | BL-5: Remove billing remnants | None         |
 
 ### Wave 2 (After TS-1 completes — 2 more agents)
 
@@ -232,17 +234,20 @@ Sprint 0 has a bottleneck: TS-2, TS-3, TS-4 all depend on TS-1.
 ### Sprint 0 Retrospective
 
 **What worked:**
+
 - Mutex lockfiles for shared file coordination
 - Wave-based agent spawning (6 → 2 → 1) respected dependency chains
 - Idle agents picked up follow-on work (color-engine completed CE-2 through CE-6, apple-cal set up CI)
 - All 6 spikes + bonus production code completed in one session
 
 **What didn't work:**
+
 - Agents running git commands caused cross-contamination (broad `git add` committed other agents' files)
 - Worktrees were planned but never used — all agents worked in the same directory
 - Branch merging was messy due to leaked commits
 
 **Changes for Sprint 1+:**
+
 - **Centralized git**: Only the team lead runs git commands (see Git Workflow above)
 - Agents focus purely on code + tests, signal completion to lead
 - Lead reviews and commits with specific file staging

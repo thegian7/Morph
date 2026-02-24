@@ -1,16 +1,18 @@
 import { useSettings } from '../hooks/useSettings';
 
 const THICKNESS_OPTIONS = [
-  { value: 'thin', label: 'Thin', barWidth: 'w-0.5' },
-  { value: 'medium', label: 'Medium', barWidth: 'w-1.5' },
-  { value: 'thick', label: 'Thick', barWidth: 'w-3' },
+  { value: 'thin', label: 'Thin (8px)', barWidth: 'w-1' },
+  { value: 'medium', label: 'Medium (16px)', barWidth: 'w-2.5' },
+  { value: 'thick', label: 'Thick (28px)', barWidth: 'w-4' },
 ] as const;
 
 const POSITION_OPTIONS = [
   { value: 'all', label: 'All Edges' },
   { value: 'top', label: 'Top Only' },
-  { value: 'sides', label: 'Sides Only' },
   { value: 'bottom', label: 'Bottom Only' },
+  { value: 'sides', label: 'Sides Only' },
+  { value: 'top-sides', label: 'Top + Sides' },
+  { value: 'bottom-sides', label: 'Bottom + Sides' },
 ] as const;
 
 const PALETTE_OPTIONS = [
@@ -44,25 +46,24 @@ const DEFAULTS = {
 function PositionDiagram({ position }: { position: string }) {
   const active = 'bg-blue-500';
   const inactive = 'bg-gray-200';
+  const hasTop = position === 'all' || position === 'top' || position === 'top-sides';
+  const hasBottom = position === 'all' || position === 'bottom' || position === 'bottom-sides';
+  const hasSides =
+    position === 'all' ||
+    position === 'sides' ||
+    position === 'top-sides' ||
+    position === 'bottom-sides';
 
   return (
     <div className="w-8 h-6 border border-gray-300 rounded-sm relative overflow-hidden">
       {/* Top */}
-      <div
-        className={`absolute top-0 left-0 right-0 h-0.5 ${position === 'all' || position === 'top' ? active : inactive}`}
-      />
+      <div className={`absolute top-0 left-0 right-0 h-0.5 ${hasTop ? active : inactive}`} />
       {/* Bottom */}
-      <div
-        className={`absolute bottom-0 left-0 right-0 h-0.5 ${position === 'all' || position === 'bottom' ? active : inactive}`}
-      />
+      <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${hasBottom ? active : inactive}`} />
       {/* Left */}
-      <div
-        className={`absolute top-0 left-0 bottom-0 w-0.5 ${position === 'all' || position === 'sides' ? active : inactive}`}
-      />
+      <div className={`absolute top-0 left-0 bottom-0 w-0.5 ${hasSides ? active : inactive}`} />
       {/* Right */}
-      <div
-        className={`absolute top-0 right-0 bottom-0 w-0.5 ${position === 'all' || position === 'sides' ? active : inactive}`}
-      />
+      <div className={`absolute top-0 right-0 bottom-0 w-0.5 ${hasSides ? active : inactive}`} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # Technical Architecture Analysis
 
-## Ambient Screen Border Timer (LightTime)
+## Ambient Screen Border Timer (Morph)
 
 **Date:** February 19, 2026
 **Status:** Initial Analysis
@@ -62,7 +62,7 @@ A basic overlay window configuration in `tauri.conf.json`:
 
 `setIgnoreCursorEvents(true)` disables ALL mouse interaction with the window. There is no native Tauri support for "pass through clicks on transparent areas but capture clicks on opaque areas." The Tauri maintainers explicitly closed feature request `#13070` stating this "won't be implemented" due to complexity. The underlying issue `#2090` was closed with the note that "detecting whether an area within a window is transparent or not is a near impossible task, even Electron gave up on the idea."
 
-**Impact on LightTime:** For our use case, this is actually acceptable. The border overlay is purely visual and should NEVER capture any input. We want full click-through at all times. Setting `setIgnoreCursorEvents(true)` once and leaving it is the correct behavior.
+**Impact on Morph:** For our use case, this is actually acceptable. The border overlay is purely visual and should NEVER capture any input. We want full click-through at all times. Setting `setIgnoreCursorEvents(true)` once and leaving it is the correct behavior.
 
 #### 2. Windows Platform Bugs
 
@@ -95,17 +95,17 @@ There are reported issues with Tauri creating windows on multiple monitors (`#14
 
 ### The Sandbox Problem
 
-The Mac App Store requires all apps to be sandboxed. Sandbox restrictions relevant to LightTime:
+The Mac App Store requires all apps to be sandboxed. Sandbox restrictions relevant to Morph:
 
 - **Accessibility Permissions**: Cannot be requested from sandboxed apps. The permission prompt never appears, and the app cannot be added to System Settings > Privacy & Security > Accessibility.
 - **Window Level Manipulation**: Setting `NSWindowLevel` above `.floating` may be restricted or rejected during review.
 - **Inter-App Communication**: Sandboxing prevents observation or modification of other apps' behavior.
 
-### Specific Risks for LightTime
+### Specific Risks for Morph
 
 1. **NSWindowLevel.screenSaver**: Using screen-saver-level or higher window levels to float above fullscreen apps is likely to trigger App Store review rejection. Apple's review guidelines are strict about apps that overlay the entire screen, as this behavior pattern is associated with malware.
 
-2. **Accessibility Permissions**: LightTime does NOT need accessibility permissions for its core function (it's purely visual, no input monitoring). However, if future features like "Do Not Disturb sync" or "focus mode" are added, they would require accessibility access, which is incompatible with the sandbox.
+2. **Accessibility Permissions**: Morph does NOT need accessibility permissions for its core function (it's purely visual, no input monitoring). However, if future features like "Do Not Disturb sync" or "focus mode" are added, they would require accessibility access, which is incompatible with the sandbox.
 
 3. **Calendar Access (EventKit)**: EventKit access IS available in the sandbox with the `com.apple.security.personal-information.calendars` entitlement. This is one of the few system integrations that works.
 
@@ -230,7 +230,7 @@ Apple notarization (without the App Store) provides the same security assurance 
 
 ### The Baseline Question
 
-LightTime renders a fullscreen transparent window with a thin colored border using CSS. The vast majority of the window area is fully transparent. How expensive is this?
+Morph renders a fullscreen transparent window with a thin colored border using CSS. The vast majority of the window area is fully transparent. How expensive is this?
 
 ### GPU/CPU Cost Analysis
 

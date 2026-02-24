@@ -2,12 +2,7 @@ import type { CalendarEvent } from '@/lib/color-engine/types';
 import type { TimerState } from './types';
 
 export type { TimerState, TimerAction, TimerStatus, TimerPreset } from './types';
-export {
-  getDefaultPresets,
-  createPreset,
-  startTimerFromPreset,
-  validatePreset,
-} from './presets';
+export { getDefaultPresets, createPreset, startTimerFromPreset, validatePreset } from './presets';
 
 // ---------------------------------------------------------------------------
 // Factory
@@ -29,11 +24,7 @@ export function createTimer(): TimerState {
 // ---------------------------------------------------------------------------
 
 /** Start a new timer. Only valid from idle or stopped. */
-export function startTimer(
-  state: TimerState,
-  durationSeconds: number,
-  now: Date,
-): TimerState {
+export function startTimer(state: TimerState, durationSeconds: number, now: Date): TimerState {
   if (state.status !== 'idle' && state.status !== 'stopped') return state;
   return {
     status: 'running',
@@ -51,8 +42,7 @@ export function pauseTimer(state: TimerState, now: Date): TimerState {
     ...state,
     status: 'paused',
     pausedAt: now.toISOString(),
-    elapsedBeforePause:
-      state.elapsedBeforePause + diffSeconds(state.startedAt!, now),
+    elapsedBeforePause: state.elapsedBeforePause + diffSeconds(state.startedAt!, now),
   };
 }
 
@@ -108,10 +98,7 @@ export function getRemainingSeconds(state: TimerState, now: Date): number {
  * Convert the current timer state into a synthetic CalendarEvent that the
  * color engine can consume, or null if the timer is idle/stopped.
  */
-export function getTimerAsEvent(
-  state: TimerState,
-  now: Date,
-): CalendarEvent | null {
+export function getTimerAsEvent(state: TimerState, now: Date): CalendarEvent | null {
   if (state.status === 'idle' || state.status === 'stopped') return null;
 
   const elapsed = getElapsedSeconds(state, now);

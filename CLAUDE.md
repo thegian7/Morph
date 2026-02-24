@@ -1,4 +1,4 @@
-# LightTime
+# Morph
 
 Ambient screen border overlay that changes color based on upcoming calendar events. Built with Tauri 2, React 19, TypeScript, Tailwind CSS 4, and Rust.
 
@@ -15,6 +15,7 @@ Ambient screen border overlay that changes color based on upcoming calendar even
 **NSWindow configuration MUST be deferred until after the webview loads.** Applying macOS NSWindow settings (window level, click-through via `setIgnoresMouseEvents`, collection behavior) before the webview finishes loading prevents JavaScript from ever executing in WKWebView.
 
 Current pattern in `lib.rs`:
+
 1. Show overlay windows immediately (from tauri.conf.json)
 2. Wait 1 second for webview JS to initialize
 3. Apply NSWindow config on the main thread via `run_on_main_thread()`
@@ -24,6 +25,7 @@ If you modify overlay window setup, preserve this ordering.
 ## Multi-Page Vite Setup
 
 Two HTML entry points configured in `vite.config.ts`:
+
 - `src/overlay/index.html` - overlay border windows (vanilla TS, no React)
 - `src/settings/index.html` - settings window (React 19)
 

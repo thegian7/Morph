@@ -46,17 +46,10 @@ export default function WarningSettings() {
           const enabled = getSetting(threshold.key) === 'true';
 
           return (
-            <div
-              key={threshold.key}
-              className="flex items-center justify-between py-2"
-            >
+            <div key={threshold.key} className="flex items-center justify-between py-2">
               <div className="flex-1 min-w-0 mr-4">
-                <span className="text-sm font-medium text-gray-800">
-                  {threshold.label}
-                </span>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {threshold.description}
-                </p>
+                <span className="text-sm font-medium text-gray-800">{threshold.label}</span>
+                <p className="text-xs text-gray-500 mt-0.5">{threshold.description}</p>
               </div>
 
               <button
