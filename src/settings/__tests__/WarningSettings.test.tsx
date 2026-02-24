@@ -59,36 +59,8 @@ describe('WarningSettings', () => {
     expect(screen.getByText('2 minutes before')).toBeDefined();
   });
 
-  it('shows Pro badge on 30min and 15min thresholds', () => {
+  it('all toggles are enabled (no pro gating)', () => {
     renderWithSettings(<WarningSettings />, mockCtx);
-
-    const proBadges = screen.getAllByText('Pro');
-    expect(proBadges).toHaveLength(2);
-  });
-
-  it('disables 30min and 15min toggles for free tier', () => {
-    renderWithSettings(<WarningSettings isPro={false} />, mockCtx);
-
-    const toggle30 = screen.getByRole('switch', { name: 'Toggle 30 minutes before' });
-    const toggle15 = screen.getByRole('switch', { name: 'Toggle 15 minutes before' });
-    const toggle5 = screen.getByRole('switch', { name: 'Toggle 5 minutes before' });
-    const toggle2 = screen.getByRole('switch', { name: 'Toggle 2 minutes before' });
-
-    expect(toggle30.hasAttribute('disabled')).toBe(true);
-    expect(toggle15.hasAttribute('disabled')).toBe(true);
-    expect(toggle5.hasAttribute('disabled')).toBe(false);
-    expect(toggle2.hasAttribute('disabled')).toBe(false);
-  });
-
-  it('shows upgrade message for disabled thresholds in free tier', () => {
-    renderWithSettings(<WarningSettings isPro={false} />, mockCtx);
-
-    const upgradeMessages = screen.getAllByText(/Upgrade to Pro/);
-    expect(upgradeMessages).toHaveLength(2);
-  });
-
-  it('enables all toggles when isPro is true', () => {
-    renderWithSettings(<WarningSettings isPro={true} />, mockCtx);
 
     const switches = screen.getAllByRole('switch');
     expect(switches).toHaveLength(4);
@@ -97,15 +69,9 @@ describe('WarningSettings', () => {
     });
   });
 
-  it('does not show upgrade messages when isPro is true', () => {
-    renderWithSettings(<WarningSettings isPro={true} />, mockCtx);
-
-    expect(screen.queryByText(/Upgrade to Pro/)).toBeNull();
-  });
-
-  it('calls setSetting when toggling a free-tier switch off', async () => {
+  it('calls setSetting when toggling a switch off', async () => {
     const user = userEvent.setup();
-    renderWithSettings(<WarningSettings isPro={false} />, mockCtx);
+    renderWithSettings(<WarningSettings />, mockCtx);
 
     const toggle5 = screen.getByRole('switch', { name: 'Toggle 5 minutes before' });
     await user.click(toggle5);
@@ -113,10 +79,10 @@ describe('WarningSettings', () => {
     expect(mockCtx.setSetting).toHaveBeenCalledWith('warning_5min', 'false');
   });
 
-  it('calls setSetting when toggling a free-tier switch on', async () => {
+  it('calls setSetting when toggling a switch on', async () => {
     const user = userEvent.setup();
     mockCtx = createMockSettings({ warning_5min: 'false' });
-    renderWithSettings(<WarningSettings isPro={false} />, mockCtx);
+    renderWithSettings(<WarningSettings />, mockCtx);
 
     const toggle5 = screen.getByRole('switch', { name: 'Toggle 5 minutes before' });
     await user.click(toggle5);
@@ -124,19 +90,9 @@ describe('WarningSettings', () => {
     expect(mockCtx.setSetting).toHaveBeenCalledWith('warning_5min', 'true');
   });
 
-  it('does NOT call setSetting when clicking a pro-gated toggle in free tier', async () => {
+  it('calls setSetting when toggling 30min threshold', async () => {
     const user = userEvent.setup();
-    renderWithSettings(<WarningSettings isPro={false} />, mockCtx);
-
-    const toggle30 = screen.getByRole('switch', { name: 'Toggle 30 minutes before' });
-    await user.click(toggle30);
-
-    expect(mockCtx.setSetting).not.toHaveBeenCalled();
-  });
-
-  it('calls setSetting when toggling a pro-gated switch with isPro', async () => {
-    const user = userEvent.setup();
-    renderWithSettings(<WarningSettings isPro={true} />, mockCtx);
+    renderWithSettings(<WarningSettings />, mockCtx);
 
     const toggle30 = screen.getByRole('switch', { name: 'Toggle 30 minutes before' });
     await user.click(toggle30);

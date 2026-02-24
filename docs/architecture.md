@@ -1,4 +1,4 @@
-# LightTime Architecture
+# Morph Architecture
 
 **Status:** Pre-implementation (decisions finalized, pending Sprint 0 spikes)
 **Last Updated:** February 19, 2026
@@ -20,7 +20,7 @@
 |  | - Pulse animation   |          | - Calendar connections |    |
 |  | - Color engine (TS) |          | - Warning thresholds   |    |
 |  +--------+------------+          | - Timer controls       |    |
-|           |                       | - Upgrade (Pro)        |    |
+|           |                       | - About / Support      |    |
 |           | Tauri Events          +----------+-------------+    |
 |           | (calendar-events-update,         |                   |
 |           |  settings-changed,               | Tauri Commands    |
@@ -49,13 +49,10 @@
 +------------------------------------------------------------------+
 
 +------------------------------------------------------------------+
-|                   Billing Backend (Cloudflare)                    |
+|                   Support (External)                             |
 |                                                                  |
-|  Workers:                          D1 Database:                  |
-|  - POST /create-checkout-session   - subscriptions table         |
-|  - POST /stripe-webhook            - (email, stripe_customer_id, |
-|  - GET  /check-license               status, expires_at,        |
-|                                       device_id)                 |
+|  Ko-fi tip jar — no backend, no license validation               |
+|  All features free, voluntary donations                          |
 +------------------------------------------------------------------+
 ```
 
@@ -183,62 +180,9 @@ export interface CalendarEvent {
 
 ---
 
-## Billing Architecture
+## Monetization
 
-### Flow
-
-```
-User clicks "Upgrade" in Settings
-  → App calls Tauri command: create_checkout_url(email, device_id)
-    → Rust calls POST https://api.lighttime.app/create-checkout-session
-      → CF Worker creates Stripe Checkout Session (subscription mode)
-      → Returns Checkout URL
-    → Rust opens URL in system browser
-      → User completes payment on Stripe-hosted page
-      → Stripe sends webhook to POST https://api.lighttime.app/stripe-webhook
-        → CF Worker writes subscription record to D1
-  → App polls GET https://api.lighttime.app/check-license?email=...&device_id=...
-    → Returns { licensed: true, plan: "pro", expiresAt: "..." }
-    → App caches license locally in SQLite
-```
-
-### Cloudflare Workers Endpoints
-
-| Endpoint                   | Method | Purpose                                                                                    |
-| -------------------------- | ------ | ------------------------------------------------------------------------------------------ |
-| `/create-checkout-session` | POST   | Creates Stripe Checkout Session with subscription price, returns URL                       |
-| `/stripe-webhook`          | POST   | Receives Stripe events (checkout.session.completed, customer.subscription.updated/deleted) |
-| `/check-license`           | GET    | App calls on launch + every 24h to verify subscription status                              |
-
-### D1 Schema
-
-```sql
-CREATE TABLE subscriptions (
-  email TEXT PRIMARY KEY,
-  stripe_customer_id TEXT NOT NULL,
-  stripe_subscription_id TEXT,
-  status TEXT NOT NULL DEFAULT 'free',  -- 'free', 'pro', 'cancelled', 'past_due'
-  plan_interval TEXT,                    -- 'month', 'year'
-  current_period_end TEXT,               -- ISO 8601
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-```
-
-### License Caching (Client-Side)
-
-- App checks license on launch and every 24 hours
-- License status cached in local SQLite
-- **7-day grace period** if license check fails (network issues)
-- After grace period expires, app falls back to free tier (non-destructive)
-- No DRM, no phone-home-or-die — if the server is down, the app still works
-
-### Stripe Products
-
-| Product                 | Price ID        | Amount   |
-| ----------------------- | --------------- | -------- |
-| LightTime Pro (Monthly) | Created in BL-1 | $7/month |
-| LightTime Pro (Annual)  | Created in BL-1 | $56/year |
+Morph is completely free and open source (GPL-3.0). No paid tier, no feature gates, no license keys. Revenue is via voluntary tips through Ko-fi. A "Support Morph" link appears in the About tab, system tray menu, and settings footer.
 
 ---
 
@@ -277,16 +221,6 @@ CREATE TABLE calendar_providers (
   status TEXT NOT NULL DEFAULT 'connected'  -- 'connected', 'error', 'disconnected'
 );
 
--- Cached license state
-CREATE TABLE license (
-  email TEXT PRIMARY KEY,
-  status TEXT NOT NULL DEFAULT 'free',
-  plan_interval TEXT,
-  expires_at TEXT,
-  last_checked_at TEXT,
-  cached_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
 -- Timer state (persists across restarts)
 CREATE TABLE timer (
   id INTEGER PRIMARY KEY CHECK (id = 1),  -- singleton
@@ -321,10 +255,9 @@ CREATE TABLE schema_version (
 | CI/CD                 | **GitHub Actions**                                          | Tauri has official GH Actions templates; good macOS/Windows runner support |
 | Token storage         | **OS Keychain via `keyring` crate**                         | Cross-platform: macOS Keychain, Windows Credential Manager                 |
 | Local database        | **SQLite via tauri-plugin-sql**                             | Lightweight, embedded, no server needed                                    |
-| Payment               | **Stripe Checkout (hosted)**                                | User clicks Upgrade → browser opens Stripe-hosted payment page             |
-| Billing backend       | **Cloudflare Workers + D1**                                 | 3 serverless endpoints, D1 (SQLite) for subscriptions                      |
-| License model         | **Server-verified with local cache**                        | Check on launch + every 24h, 7-day grace period                            |
-| Distribution          | **Direct download + notarization**                          | Mac App Store deferred (sandbox conflicts with overlay)                    |
+| Monetization          | **Free + Ko-fi tip jar**                                    | No backend needed, no feature gates, voluntary support                     |
+| License               | **GPL-3.0 open source**                                     | Free forever, community contributions welcome                              |
+| Distribution          | **GitHub Releases + Homebrew**                              | Phase 1: unsigned. Phase 2: package managers. Phase 3: code signing        |
 
 ---
 

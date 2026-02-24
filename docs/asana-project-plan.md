@@ -1,4 +1,4 @@
-# LightTime -- Asana Project Plan
+# Morph -- Asana Project Plan
 
 **Date:** February 19, 2026
 **Status:** Ready for Import
@@ -26,10 +26,10 @@
 | **Core Overlay Engine**    | Transparent border rendering, click-through, platform-specific window management. The foundational layer. |
 | **Color Engine**           | Pure TypeScript state machine that maps calendar state to border color/opacity/pulse.                     |
 | **Calendar Integrations**  | Google Calendar, Microsoft Graph, Apple EventKit OAuth flows and event fetching.                          |
-| **Manual Timer**           | Standalone timer mode for free-tier users. Quick presets, start/stop from tray.                           |
+| **Manual Timer**           | Standalone timer mode. Quick presets, start/stop from tray.                                               |
 | **Settings UI**            | React-based settings window for border, color, calendar, and general preferences.                         |
 | **System Tray / Menu Bar** | macOS menu bar and Windows system tray integration, quick actions, status display.                        |
-| **Billing & Licensing**    | Stripe integration, free/pro tier gating, license verification.                                           |
+| **Billing & Licensing**    | Ko-fi tip jar integration, open source licensing (GPL-3.0). No paid tier.                                 |
 | **Distribution & Updates** | Notarization, code signing, auto-updater, installer packaging.                                            |
 | **QA & Polish**            | Cross-platform testing, accessibility, performance profiling, edge cases.                                 |
 | **Launch Prep**            | Landing page, marketing assets, community launch, Google OAuth verification.                              |
@@ -61,12 +61,12 @@
 
 ### M4: Beta
 
-**Definition:** All MVP features integrated. Settings UI complete. System tray working. Stripe billing connected. Internal/closed beta testing with real users.
+**Definition:** All MVP features integrated. Settings UI complete. System tray working. Ko-fi tip jar linked. Internal/closed beta testing with real users.
 **Target:** End of Sprint 5 (Week 10)
 
 ### M5: Launch
 
-**Definition:** Public release. Direct download distribution with notarization and auto-updater. Landing page live. Google OAuth verified (or workaround in place). Stripe billing active.
+**Definition:** Public release. GitHub Releases distribution. Landing page live. Google OAuth verified (or workaround in place). Ko-fi tip jar active. Open source (GPL-3.0).
 **Target:** End of Sprint 7 (Week 14)
 
 ---
@@ -691,11 +691,11 @@
 
 #### BL-1: Set Up Stripe Products and Pricing
 
-**Description:** Create the Stripe product configuration: a single product ("LightTime Pro") with two prices -- $7/month and $56/year. Configure the customer portal for subscription management. Set up webhook endpoint for payment events.
+**Description:** Create the Stripe product configuration: a single product ("Morph Pro") with two prices -- $7/month and $56/year. Configure the customer portal for subscription management. Set up webhook endpoint for payment events.
 
 **Acceptance Criteria:**
 
-- Stripe product "LightTime Pro" created in test mode
+- Stripe product "Morph Pro" created in test mode
 - Monthly price ($7/mo) and annual price ($56/year) configured
 - Customer portal enabled for self-serve subscription management
 - Webhook endpoint URL configured (can be a placeholder until backend is ready)
@@ -922,7 +922,7 @@
 
 #### LP-2: Create Landing Page
 
-**Description:** Build a landing page for LightTime with: hero section showing the border concept, feature highlights, pricing table (free vs. pro), download buttons (macOS + Windows), and email signup for launch notification. Can be a simple static site (e.g., Astro or Next.js on Vercel).
+**Description:** Build a landing page for Morph with: hero section showing the border concept, feature highlights, pricing table (free vs. pro), download buttons (macOS + Windows), and email signup for launch notification. Can be a simple static site (e.g., Astro or Next.js on Vercel).
 
 **Acceptance Criteria:**
 

@@ -1,4 +1,4 @@
-# LightTime Team Conventions
+# Morph Team Conventions
 
 **Team composition:** Up to 10 Claude Code agents
 **Coordination:** Centralized git (lead only) + mutex locks on shared files
@@ -154,7 +154,7 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 | `timer`    | Manual timer (MT-\*)           |
 | `settings` | Settings UI (SET-\*)           |
 | `tray`     | System tray (ST-\*)            |
-| `billing`  | Billing & licensing (BL-\*)    |
+| `billing`  | Ko-fi tip jar & support (BL-\*)|
 | `dist`     | Distribution & updates (DU-\*) |
 | `infra`    | CI/CD, project config          |
 
@@ -186,7 +186,7 @@ Each agent is named by their primary responsibility:
 | `ms-cal`       | TS-6, CAL-3                            | TS-6                    |
 | `apple-cal`    | CAL-4, CAL-1                           | CAL-1                   |
 | `ui-settings`  | SET-1, SET-2, SET-3, SET-4, ST-1, ST-2 | Idle Sprint 0           |
-| `billing`      | BL-1, BL-2, BL-3                       | BL-1                    |
+| `billing`      | BL-4, BL-5                             | BL-5                    |
 
 > Agents idle during Sprint 0 can assist with documentation, CI setup, or pick up tasks from the next sprint if Sprint 0 completes early.
 
@@ -205,7 +205,7 @@ Sprint 0 has a bottleneck: TS-2, TS-3, TS-4 all depend on TS-1.
 | `ms-cal`       | TS-6: MS Graph OAuth spike  | None         |
 | `color-engine` | CE-1: Color engine types    | None         |
 | `apple-cal`    | CAL-1: Calendar abstraction | None         |
-| `billing`      | BL-1: Stripe product setup  | None         |
+| `billing`      | BL-5: Remove billing remnants | None       |
 
 ### Wave 2 (After TS-1 completes — 2 more agents)
 

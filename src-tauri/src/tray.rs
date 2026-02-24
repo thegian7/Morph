@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 /// Holds the tray icon handle so other parts of the app can update the menu.
 pub struct TrayState {
@@ -45,7 +45,9 @@ fn build_menu(app: &AppHandle, status_label: &str) -> Result<Menu<tauri::Wry>, B
             &timer_submenu,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "open_settings", "Open Settings", true, None::<&str>)?,
-            &MenuItem::with_id(app, "quit", "Quit LightTime", true, None::<&str>)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "support", "Support Morph ♥", true, None::<&str>)?,
+            &MenuItem::with_id(app, "quit", "Quit Morph", true, None::<&str>)?,
         ],
     )?;
 
@@ -56,10 +58,33 @@ fn build_menu(app: &AppHandle, status_label: &str) -> Result<Menu<tauri::Wry>, B
 fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     match event.id.as_ref() {
         "open_settings" => {
-            if let Some(window) = app.get_webview_window("settings") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            let window = match app.get_webview_window("settings") {
+                Some(w) => w,
+                None => match WebviewWindowBuilder::new(
+                    app,
+                    "settings",
+                    WebviewUrl::App("src/settings/index.html".into()),
+                )
+                .title("Morph Settings")
+                .inner_size(600.0, 500.0)
+                .decorations(true)
+                .resizable(true)
+                .build()
+                {
+                    Ok(w) => w,
+                    Err(e) => {
+                        eprintln!("Failed to create settings window: {e}");
+                        return;
+                    }
+                },
+            };
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+        "support" => {
+            let _ = tauri::async_runtime::spawn(async {
+                let _ = open::that("https://ko-fi.com/christopherledbetter");
+            });
         }
         "quit" => {
             app.exit(0);

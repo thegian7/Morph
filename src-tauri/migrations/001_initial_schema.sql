@@ -28,16 +28,6 @@ CREATE TABLE IF NOT EXISTS calendar_providers (
   status TEXT NOT NULL DEFAULT 'connected'
 );
 
--- Cached license state
-CREATE TABLE IF NOT EXISTS license (
-  email TEXT PRIMARY KEY,
-  status TEXT NOT NULL DEFAULT 'free',
-  plan_interval TEXT,
-  expires_at TEXT,
-  last_checked_at TEXT,
-  cached_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
 -- Timer state (persists across restarts)
 CREATE TABLE IF NOT EXISTS timer (
   id INTEGER PRIMARY KEY CHECK (id = 1),
