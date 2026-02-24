@@ -8,12 +8,13 @@ import BorderTab from './tabs/BorderTab';
 import CalendarTab from './tabs/CalendarTab';
 import TimerTab from './tabs/TimerTab';
 import AboutTab from './tabs/AboutTab';
+import WelcomeTab from './tabs/WelcomeTab';
 
 const KOFI_URL = 'https://ko-fi.com/morphlight';
 
-type TabName = 'general' | 'border' | 'calendar' | 'timer' | 'about';
+type TabName = 'welcome' | 'general' | 'border' | 'calendar' | 'timer' | 'about';
 
-const TABS: { id: TabName; label: string }[] = [
+const MAIN_TABS: { id: TabName; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'border', label: 'Border' },
   { id: 'calendar', label: 'Calendar' },
@@ -21,24 +22,29 @@ const TABS: { id: TabName; label: string }[] = [
   { id: 'about', label: 'About' },
 ];
 
-function TabContent({ tab }: { tab: TabName }) {
-  switch (tab) {
-    case 'general':
-      return <GeneralTab />;
-    case 'border':
-      return <BorderTab />;
-    case 'calendar':
-      return <CalendarTab />;
-    case 'timer':
-      return <TimerTab />;
-    case 'about':
-      return <AboutTab />;
-  }
-}
-
 export default function App() {
   const settingsValue = useSettingsProvider();
-  const [activeTab, setActiveTab] = useState<TabName>('general');
+  const onboardingComplete = settingsValue.getSetting('onboarding_complete') === 'true';
+  const [activeTab, setActiveTab] = useState<TabName>(
+    settingsValue.loading ? 'general' : onboardingComplete ? 'general' : 'welcome',
+  );
+
+  // Once settings load, switch to welcome if onboarding not complete
+  useEffect(() => {
+    if (!settingsValue.loading && settingsValue.getSetting('onboarding_complete') !== 'true') {
+      setActiveTab('welcome');
+    }
+  }, [settingsValue.loading]);
+
+  const showWelcome = !onboardingComplete;
+  const tabs = showWelcome
+    ? [{ id: 'welcome' as TabName, label: 'Welcome' }, ...MAIN_TABS]
+    : MAIN_TABS;
+
+  function handleOnboardingComplete() {
+    settingsValue.setSetting('onboarding_complete', 'true');
+    setActiveTab('general');
+  }
 
   useEffect(() => {
     const unlisten = getCurrentWindow().onCloseRequested((e) => {
@@ -59,7 +65,7 @@ export default function App() {
             Morph
           </h1>
           <ul className="space-y-1">
-            {TABS.map((tab) => (
+            {tabs.map((tab) => (
               <li key={tab.id}>
                 <button
                   onClick={() => setActiveTab(tab.id)}
@@ -100,7 +106,17 @@ export default function App() {
             <p className="text-gray-400">Loading settings...</p>
           ) : (
             <ErrorBoundary>
-              <TabContent tab={activeTab} />
+              {activeTab === 'welcome' && (
+                <WelcomeTab
+                  onGoToCalendar={() => setActiveTab('calendar')}
+                  onComplete={handleOnboardingComplete}
+                />
+              )}
+              {activeTab === 'general' && <GeneralTab />}
+              {activeTab === 'border' && <BorderTab />}
+              {activeTab === 'calendar' && <CalendarTab />}
+              {activeTab === 'timer' && <TimerTab />}
+              {activeTab === 'about' && <AboutTab />}
             </ErrorBoundary>
           )}
         </main>

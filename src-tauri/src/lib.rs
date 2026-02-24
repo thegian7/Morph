@@ -6,6 +6,7 @@ pub mod tray;
 pub mod window_manager;
 
 use std::sync::{Arc, Mutex};
+use sqlx::Row;
 use tauri::{Emitter, Listener, Manager, RunEvent};
 use tauri_plugin_sql::{Migration, MigrationKind};
 
@@ -99,16 +100,22 @@ async fn connect_provider(app: tauri::AppHandle, provider: String) -> Result<(),
             let mut p = GoogleCalendarProvider::new();
             p.authenticate().await.map_err(|e| e.to_string())?;
             let name = p.account_name().to_string();
-            let mut agg = aggregator.lock().await;
-            agg.add_provider(Box::new(p));
+            {
+                let mut agg = aggregator.lock().await;
+                agg.add_provider(Box::new(p));
+            }
+            save_provider_to_db(&app, "google", &name).await;
             name
         }
         "microsoft" => {
             let mut p = MicrosoftCalendarProvider::new();
             p.authenticate().await.map_err(|e| e.to_string())?;
             let name = p.account_name().to_string();
-            let mut agg = aggregator.lock().await;
-            agg.add_provider(Box::new(p));
+            {
+                let mut agg = aggregator.lock().await;
+                agg.add_provider(Box::new(p));
+            }
+            save_provider_to_db(&app, "microsoft", &name).await;
             name
         }
         #[cfg(target_os = "macos")]
@@ -116,8 +123,11 @@ async fn connect_provider(app: tauri::AppHandle, provider: String) -> Result<(),
             let mut p = AppleCalendarProvider::new("Apple Calendar");
             p.authenticate().await.map_err(|e| e.to_string())?;
             let name = p.account_name().to_string();
-            let mut agg = aggregator.lock().await;
-            agg.add_provider(Box::new(p));
+            {
+                let mut agg = aggregator.lock().await;
+                agg.add_provider(Box::new(p));
+            }
+            save_provider_to_db(&app, "apple", &name).await;
             name
         }
         other => return Err(format!("unknown provider: {other}")),
@@ -143,25 +153,32 @@ async fn connect_provider(app: tauri::AppHandle, provider: String) -> Result<(),
 #[tauri::command]
 async fn disconnect_provider(app: tauri::AppHandle, provider: String) -> Result<(), String> {
     let aggregator = app.state::<Arc<tokio::sync::Mutex<CalendarAggregator>>>();
-    let mut agg = aggregator.lock().await;
 
     match provider.as_str() {
         "google" => {
-            // Remove any provider whose id starts with "google-"
-            agg.remove_providers_by_prefix("google-");
-            // Clear keyring tokens (best-effort)
-            clear_keyring_entries("com.lighttime.google-oauth");
+            {
+                let mut agg = aggregator.lock().await;
+                agg.remove_providers_by_prefix("google-");
+            }
+            clear_keyring_entries("com.morph.google-oauth");
+            remove_provider_from_db(&app, "google").await;
         }
         "microsoft" => {
-            // Remove any provider whose id starts with "microsoft-" or is an email
-            agg.remove_providers_by_prefix("microsoft-");
-            // Also remove by type since MS provider_id can be the email itself
-            agg.remove_providers_by_type(calendar::types::ProviderType::Microsoft);
-            clear_keyring_entries("com.lighttime.microsoft-oauth");
+            {
+                let mut agg = aggregator.lock().await;
+                agg.remove_providers_by_prefix("microsoft-");
+                agg.remove_providers_by_type(calendar::types::ProviderType::Microsoft);
+            }
+            clear_keyring_entries("com.morph.microsoft-oauth");
+            remove_provider_from_db(&app, "microsoft").await;
         }
         #[cfg(target_os = "macos")]
         "apple" => {
-            agg.remove_provider("apple-calendar");
+            {
+                let mut agg = aggregator.lock().await;
+                agg.remove_provider("apple-calendar");
+            }
+            remove_provider_from_db(&app, "apple").await;
         }
         other => return Err(format!("unknown provider: {other}")),
     }
@@ -284,6 +301,118 @@ fn clear_keyring_entries(service: &str) {
     }
 }
 
+/// Save a connected provider record to the database so it survives app restarts.
+async fn save_provider_to_db(app: &tauri::AppHandle, provider_type: &str, account_name: &str) {
+    let db = app.state::<tauri_plugin_sql::DbInstances>();
+    let instances = db.0.read().await;
+    if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
+        let id = format!("{provider_type}-{account_name}");
+        if let Err(e) = sqlx::query(
+            "INSERT OR REPLACE INTO calendar_providers (id, provider_type, account_name, connected_at, status)
+             VALUES (?1, ?2, ?3, datetime('now'), 'connected')",
+        )
+        .bind(&id)
+        .bind(provider_type)
+        .bind(account_name)
+        .execute(pool)
+        .await
+        {
+            eprintln!("[providers] Failed to save provider to DB: {e}");
+        }
+    }
+}
+
+/// Remove provider records of a given type from the database.
+async fn remove_provider_from_db(app: &tauri::AppHandle, provider_type: &str) {
+    let db = app.state::<tauri_plugin_sql::DbInstances>();
+    let instances = db.0.read().await;
+    if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
+        if let Err(e) = sqlx::query("DELETE FROM calendar_providers WHERE provider_type = ?1")
+            .bind(provider_type)
+            .execute(pool)
+            .await
+        {
+            eprintln!("[providers] Failed to remove provider from DB: {e}");
+        }
+    }
+}
+
+/// Restore previously-connected calendar providers from the database on startup.
+/// Loads stored tokens from the OS keyring and adds providers to the aggregator.
+async fn restore_providers(
+    app: &tauri::AppHandle,
+    aggregator: &Arc<tokio::sync::Mutex<CalendarAggregator>>,
+) {
+    let rows = {
+        let db = app.state::<tauri_plugin_sql::DbInstances>();
+        let instances = db.0.read().await;
+        let pool = match instances.get("sqlite:morph.db") {
+            Some(tauri_plugin_sql::DbPool::Sqlite(pool)) => pool.clone(),
+            _ => return,
+        };
+        drop(instances);
+        match sqlx::query(
+            "SELECT provider_type, account_name FROM calendar_providers WHERE status = 'connected'",
+        )
+        .fetch_all(&pool)
+        .await
+        {
+            Ok(rows) => rows,
+            Err(e) => {
+                eprintln!("[restore] Failed to load saved providers: {e}");
+                return;
+            }
+        }
+    };
+
+    if rows.is_empty() {
+        return;
+    }
+
+    let mut agg = aggregator.lock().await;
+    for row in &rows {
+        let provider_type: String = row.get("provider_type");
+        let account_name: String = row.get("account_name");
+
+        match provider_type.as_str() {
+            "google" => match GoogleCalendarProvider::try_restore_session(&account_name) {
+                Ok(Some(provider)) => {
+                    eprintln!("[restore] Restored Google provider: {account_name}");
+                    agg.add_provider(Box::new(provider));
+                }
+                Ok(None) => {
+                    eprintln!("[restore] No stored tokens for Google: {account_name}");
+                }
+                Err(e) => {
+                    eprintln!("[restore] Failed to restore Google {account_name}: {e}");
+                }
+            },
+            "microsoft" => {
+                let mut p = MicrosoftCalendarProvider::new();
+                if let Err(e) = p.load_stored_tokens() {
+                    eprintln!("[restore] Failed to load Microsoft tokens: {e}");
+                    continue;
+                }
+                if p.has_refresh_token() {
+                    eprintln!("[restore] Restored Microsoft provider: {account_name}");
+                    agg.add_provider(Box::new(p));
+                } else {
+                    eprintln!("[restore] No stored tokens for Microsoft: {account_name}");
+                }
+            }
+            #[cfg(target_os = "macos")]
+            "apple" => {
+                let p = AppleCalendarProvider::new(&account_name);
+                eprintln!("[restore] Restored Apple Calendar provider");
+                agg.add_provider(Box::new(p));
+            }
+            _ => {
+                eprintln!("[restore] Unknown provider type: {provider_type}");
+            }
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let migrations = vec![Migration {
@@ -300,9 +429,10 @@ pub fn run() {
         .manage(Mutex::new(PauseState::default()))
         .manage(Mutex::new(TimerState::default()))
         .manage(aggregator.clone())
+        .plugin(tauri_plugin_shell::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:lighttime.db", migrations)
+                .add_migrations("sqlite:morph.db", migrations)
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
@@ -343,7 +473,7 @@ pub fn run() {
                     let (thickness, selected_display) = {
                         let db = handle.state::<tauri_plugin_sql::DbInstances>();
                         let instances = db.0.read().await;
-                        if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:lighttime.db") {
+                        if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
                             let t = sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = 'border_thickness'")
                                 .fetch_optional(pool)
                                 .await
@@ -383,13 +513,85 @@ pub fn run() {
                 eprintln!("Failed to set up system tray: {e}");
             }
 
-            // Start the calendar polling service
+            // Restore previously connected calendar providers from the database.
+            // Spawned before the poller so providers are available by the first poll cycle.
             let agg = app.state::<Arc<tokio::sync::Mutex<CalendarAggregator>>>();
+            let restore_handle = app.handle().clone();
+            let restore_agg = agg.inner().clone();
+            tauri::async_runtime::spawn(async move {
+                restore_providers(&restore_handle, &restore_agg).await;
+            });
+
+            // Start the calendar polling service
             CalendarPoller::start(app.handle().clone(), agg.inner().clone());
 
             // Listen for frontend events and forward to commands.
             // The Settings UI currently uses emit() rather than invoke().
             setup_event_listeners(app);
+
+            // Seed default settings (INSERT OR IGNORE) then check onboarding state.
+            let onboarding_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                // Seed defaults so new settings (like onboarding_complete) exist
+                // even if the migration SQL didn't include them.
+                {
+                    let db = onboarding_handle.state::<tauri_plugin_sql::DbInstances>();
+                    let instances = db.0.read().await;
+                    if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
+                        if let Err(e) = settings::seed_defaults_from_pool(pool).await {
+                            eprintln!("[startup] Failed to seed defaults: {e}");
+                        }
+                    }
+                }
+
+                let show_onboarding = {
+                    let db = onboarding_handle.state::<tauri_plugin_sql::DbInstances>();
+                    let instances = db.0.read().await;
+                    if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
+                        let val = sqlx::query_scalar::<_, String>(
+                            "SELECT value FROM settings WHERE key = 'onboarding_complete'"
+                        )
+                        .fetch_optional(pool)
+                        .await
+                        .ok()
+                        .flatten()
+                        .unwrap_or_else(|| "false".to_string());
+                        val != "true"
+                    } else {
+                        false
+                    }
+                };
+
+                if show_onboarding {
+                    let inner_handle = onboarding_handle.clone();
+                    let _ = onboarding_handle.run_on_main_thread(move || {
+                        let window = match inner_handle.get_webview_window("settings") {
+                            Some(w) => w,
+                            None => {
+                                match tauri::WebviewWindowBuilder::new(
+                                    &inner_handle,
+                                    "settings",
+                                    tauri::WebviewUrl::App("src/settings/index.html".into()),
+                                )
+                                .title("Morph Settings")
+                                .inner_size(600.0, 500.0)
+                                .decorations(true)
+                                .resizable(true)
+                                .build()
+                                {
+                                    Ok(w) => w,
+                                    Err(e) => {
+                                        eprintln!("[onboarding] Failed to create settings window: {e}");
+                                        return;
+                                    }
+                                }
+                            }
+                        };
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    });
+                }
+            });
 
             Ok(())
         })
@@ -562,7 +764,7 @@ fn setup_event_listeners(app: &tauri::App) {
                         let (thickness, selected_display) = {
                             let db = h.state::<tauri_plugin_sql::DbInstances>();
                             let instances = db.0.read().await;
-                            if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:lighttime.db") {
+                            if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) = instances.get("sqlite:morph.db") {
                                 let t = sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = 'border_thickness'")
                                     .fetch_optional(pool)
                                     .await

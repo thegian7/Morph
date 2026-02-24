@@ -3,7 +3,7 @@ use sqlx::Row;
 use tauri::command;
 use tauri_plugin_sql::DbInstances;
 
-const DB_URL: &str = "sqlite:lighttime.db";
+const DB_URL: &str = "sqlite:morph.db";
 
 /// Default settings applied on first run.
 const DEFAULT_SETTINGS: &[(&str, &str)] = &[
@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS: &[(&str, &str)] = &[
     ("poll_interval_seconds", "60"),
     ("launch_at_login", "false"),
     ("selected_display", "primary"),
+    ("onboarding_complete", "false"),
 ];
 
 /// Helper to get the SQLite pool from the plugin's managed state.
@@ -128,6 +129,11 @@ pub async fn get_all_settings(
 pub async fn seed_defaults(db_instances: &tauri::State<'_, DbInstances>) -> Result<(), String> {
     let pool = get_pool(db_instances).await?;
     seed_defaults_inner(&pool).await
+}
+
+/// Seed default settings given a pool directly (for use outside Tauri commands).
+pub async fn seed_defaults_from_pool(pool: &SqlitePool) -> Result<(), String> {
+    seed_defaults_inner(pool).await
 }
 
 #[cfg(test)]

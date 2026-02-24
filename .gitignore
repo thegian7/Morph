@@ -6,3 +6,6 @@ coverage/
 .DS_Store
 .locks/
 src-tauri/.cargo/config.toml
+morph.db
+morph.db-shm
+morph.db-wal

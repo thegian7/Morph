@@ -120,6 +120,34 @@ cd src-tauri && cargo test
 npm run tauri build
 ```
 
+## Beta Notice
+
+Morph is in early beta. A few things to be aware of:
+
+### Google Calendar: "Unverified app" warning
+
+When connecting Google Calendar, Google will display a warning that Morph is "not verified by Google." This is expected — Google's app verification process takes weeks and requires a privacy policy review. Morph only reads your calendar event times and titles to determine border colors. No data leaves your machine.
+
+To proceed past the warning:
+1. Click **Advanced**
+2. Click **Go to Morph (unsafe)**
+3. Grant the requested calendar permissions
+
+### macOS: Gatekeeper warning
+
+Since Morph is not yet signed with an Apple Developer certificate, macOS will block it on first launch. To open it:
+1. Right-click (or Control-click) the app
+2. Select **Open** from the context menu
+3. Click **Open** in the confirmation dialog
+
+You only need to do this once.
+
+### Windows: SmartScreen warning
+
+Windows Defender SmartScreen may show a warning for unrecognized apps. To proceed:
+1. Click **More info**
+2. Click **Run anyway**
+
 ## Project Structure
 
 ```
