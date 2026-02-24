@@ -1,7 +1,8 @@
 use super::{MonitorInfo, OverlayManager, BORDER_LABELS};
 use tauri::{Manager, WebviewWindow};
 use windows::Win32::Foundation::{BOOL, HWND, LPARAM, RECT, TRUE};
-use windows::Win32::Graphics::Dwm::{DwmExtendFrameIntoClientArea, MARGINS};
+use windows::Win32::Graphics::Dwm::DwmExtendFrameIntoClientArea;
+use windows::Win32::UI::Controls::MARGINS;
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, HDC, HMONITOR, MONITORINFO,
     MONITORINFOEXW, MONITOR_DEFAULTTOPRIMARY,

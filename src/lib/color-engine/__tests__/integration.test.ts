@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getBorderState, DEFAULT_USER_SETTINGS, AMBIENT_PALETTE } from '../index.js';
-import type { CalendarEvent, UserSettings, BorderState, Phase } from '../types.js';
+import type { CalendarEvent, UserSettings, BorderState } from '../types.js';
 
 const settings: UserSettings = { ...DEFAULT_USER_SETTINGS };
 
