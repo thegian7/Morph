@@ -109,7 +109,7 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             let _ = window.set_focus();
         }
         "support" => {
-            let _ = tauri::async_runtime::spawn(async {
+            tauri::async_runtime::spawn(async {
                 let _ = open::that("https://ko-fi.com/morphlight");
             });
         }

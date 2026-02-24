@@ -39,16 +39,10 @@ fn thickness_to_px(name: &str) -> f64 {
 }
 
 /// Tracks when the border overlay is paused until.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct PauseState {
     /// If `Some`, the border is paused until this time. If `None`, the border is active.
     pub paused_until: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-impl Default for PauseState {
-    fn default() -> Self {
-        Self { paused_until: None }
-    }
 }
 
 /// Timer state emitted to the overlay as `timer-state-update`.
