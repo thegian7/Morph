@@ -1,19 +1,8 @@
 import { useSettings } from '../hooks/useSettings';
+import { Slider, Card, SectionHeader, Button } from '@/shared/components';
 
-const THICKNESS_OPTIONS = [
-  { value: 'thin', label: 'Thin (8px)', barWidth: 'w-1' },
-  { value: 'medium', label: 'Medium (16px)', barWidth: 'w-2.5' },
-  { value: 'thick', label: 'Thick (28px)', barWidth: 'w-4' },
-] as const;
-
-const POSITION_OPTIONS = [
-  { value: 'all', label: 'All Edges' },
-  { value: 'top', label: 'Top Only' },
-  { value: 'bottom', label: 'Bottom Only' },
-  { value: 'sides', label: 'Sides Only' },
-  { value: 'top-sides', label: 'Top + Sides' },
-  { value: 'bottom-sides', label: 'Bottom + Sides' },
-] as const;
+const THICKNESS_ENUM = ['thin', 'medium', 'thick'] as const;
+const THICKNESS_LABELS = ['Thin', 'Medium', 'Thick'] as const;
 
 const PALETTE_OPTIONS = [
   {
@@ -30,11 +19,8 @@ const PALETTE_OPTIONS = [
   },
 ] as const;
 
-const INTENSITY_OPTIONS = [
-  { value: 'subtle', label: 'Subtle', description: '0.6\u00d7 opacity \u2014 bright environments' },
-  { value: 'normal', label: 'Normal', description: '1.0\u00d7 \u2014 default' },
-  { value: 'vivid', label: 'Vivid', description: '1.4\u00d7 intensity \u2014 dark environments' },
-] as const;
+const INTENSITY_ENUM = ['subtle', 'normal', 'vivid'] as const;
+const INTENSITY_LABELS = ['Subtle (0.6\u00d7)', 'Normal (1.0\u00d7)', 'Vivid (1.4\u00d7)'] as const;
 
 const DEFAULTS = {
   border_thickness: 'medium',
@@ -43,32 +29,147 @@ const DEFAULTS = {
   color_intensity: 'normal',
 } as const;
 
-function PositionDiagram({ position }: { position: string }) {
-  const active = 'bg-blue-500';
-  const inactive = 'bg-gray-200';
-  const hasTop = position === 'all' || position === 'top' || position === 'top-sides';
-  const hasBottom = position === 'all' || position === 'bottom' || position === 'bottom-sides';
-  const hasSides =
-    position === 'all' ||
-    position === 'sides' ||
-    position === 'top-sides' ||
-    position === 'bottom-sides';
+type Edge = 'top' | 'bottom' | 'left' | 'right';
+
+function edgesFromPosition(position: string): Set<Edge> {
+  switch (position) {
+    case 'all':
+      return new Set(['top', 'bottom', 'left', 'right']);
+    case 'top':
+      return new Set(['top']);
+    case 'bottom':
+      return new Set(['bottom']);
+    case 'sides':
+      return new Set(['left', 'right']);
+    case 'top-sides':
+      return new Set(['top', 'left', 'right']);
+    case 'bottom-sides':
+      return new Set(['bottom', 'left', 'right']);
+    default:
+      return new Set(['top', 'bottom', 'left', 'right']);
+  }
+}
+
+function positionFromEdges(edges: Set<Edge>): string {
+  const has = (e: Edge) => edges.has(e);
+  if (has('top') && has('bottom') && has('left') && has('right')) return 'all';
+  if (has('top') && has('left') && has('right') && !has('bottom')) return 'top-sides';
+  if (has('bottom') && has('left') && has('right') && !has('top')) return 'bottom-sides';
+  if (has('left') && has('right') && !has('top') && !has('bottom')) return 'sides';
+  if (has('top') && !has('bottom') && !has('left') && !has('right')) return 'top';
+  if (has('bottom') && !has('top') && !has('left') && !has('right')) return 'bottom';
+  // Fallback for edge combos not in the enum — pick closest
+  if (has('top') && has('bottom')) return 'all';
+  if (has('top')) return has('left') || has('right') ? 'top-sides' : 'top';
+  if (has('bottom')) return has('left') || has('right') ? 'bottom-sides' : 'bottom';
+  if (has('left') || has('right')) return 'sides';
+  return 'all';
+}
+
+function PositionSelector({
+  position,
+  onChange,
+}: {
+  position: string;
+  onChange: (pos: string) => void;
+}) {
+  const activeEdges = edgesFromPosition(position);
+
+  function toggleEdge(edge: Edge) {
+    const next = new Set(activeEdges);
+    if (next.has(edge)) {
+      next.delete(edge);
+    } else {
+      next.add(edge);
+    }
+    // Ensure at least one edge is active
+    if (next.size === 0) return;
+    onChange(positionFromEdges(next));
+  }
+
+  const activeColor = 'var(--color-primary, #3b82f6)';
+  const inactiveColor = 'var(--color-border, #d1d5db)';
+  const edgeThickness = 6;
 
   return (
-    <div className="w-8 h-6 border border-gray-300 rounded-sm relative overflow-hidden">
-      {/* Top */}
-      <div className={`absolute top-0 left-0 right-0 h-0.5 ${hasTop ? active : inactive}`} />
-      {/* Bottom */}
-      <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${hasBottom ? active : inactive}`} />
-      {/* Left */}
-      <div className={`absolute top-0 left-0 bottom-0 w-0.5 ${hasSides ? active : inactive}`} />
-      {/* Right */}
-      <div className={`absolute top-0 right-0 bottom-0 w-0.5 ${hasSides ? active : inactive}`} />
+    <div data-testid="position-selector">
+      <svg
+        width="200"
+        height="140"
+        viewBox="0 0 200 140"
+        style={{ cursor: 'pointer' }}
+        role="img"
+        aria-label="Border position selector"
+      >
+        {/* Screen outline */}
+        <rect
+          x="10"
+          y="10"
+          width="180"
+          height="120"
+          fill="none"
+          stroke="var(--color-border, #e5e7eb)"
+          strokeWidth="1"
+          rx="4"
+        />
+        {/* Top edge */}
+        <rect
+          x="10"
+          y="10"
+          width="180"
+          height={edgeThickness}
+          fill={activeEdges.has('top') ? activeColor : inactiveColor}
+          rx="2"
+          onClick={() => toggleEdge('top')}
+          style={{ cursor: 'pointer' }}
+          role="button"
+          aria-label="Toggle top edge"
+        />
+        {/* Bottom edge */}
+        <rect
+          x="10"
+          y={130 - edgeThickness}
+          width="180"
+          height={edgeThickness}
+          fill={activeEdges.has('bottom') ? activeColor : inactiveColor}
+          rx="2"
+          onClick={() => toggleEdge('bottom')}
+          style={{ cursor: 'pointer' }}
+          role="button"
+          aria-label="Toggle bottom edge"
+        />
+        {/* Left edge */}
+        <rect
+          x="10"
+          y="10"
+          width={edgeThickness}
+          height="120"
+          fill={activeEdges.has('left') ? activeColor : inactiveColor}
+          rx="2"
+          onClick={() => toggleEdge('left')}
+          style={{ cursor: 'pointer' }}
+          role="button"
+          aria-label="Toggle left edge"
+        />
+        {/* Right edge */}
+        <rect
+          x={190 - edgeThickness}
+          y="10"
+          width={edgeThickness}
+          height="120"
+          fill={activeEdges.has('right') ? activeColor : inactiveColor}
+          rx="2"
+          onClick={() => toggleEdge('right')}
+          style={{ cursor: 'pointer' }}
+          role="button"
+          aria-label="Toggle right edge"
+        />
+      </svg>
     </div>
   );
 }
 
-export default function BorderTab() {
+export function BorderTab() {
   const { getSetting, setSetting } = useSettings();
 
   const thickness = getSetting('border_thickness') ?? 'medium';
@@ -76,8 +177,8 @@ export default function BorderTab() {
   const palette = getSetting('color_palette') ?? 'ambient';
   const intensity = getSetting('color_intensity') ?? 'normal';
 
-  const selectedClasses = 'ring-2 ring-blue-500 border-blue-500 bg-blue-50';
-  const unselectedClasses = 'border-gray-200 hover:border-gray-300';
+  const thicknessIndex = Math.max(0, THICKNESS_ENUM.indexOf(thickness as (typeof THICKNESS_ENUM)[number]));
+  const intensityIndex = Math.max(0, INTENSITY_ENUM.indexOf(intensity as (typeof INTENSITY_ENUM)[number]));
 
   function resetToDefaults() {
     for (const [key, value] of Object.entries(DEFAULTS)) {
@@ -87,107 +188,90 @@ export default function BorderTab() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-lg font-semibold mb-2">Border Settings</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Customize how the ambient border appears on your screen.
-        </p>
-      </div>
+      {/* Live preview mount point for Task 7 */}
+      <div id="preview-mount" />
+
+      <SectionHeader title="Border Settings" description="Customize how the ambient border appears on your screen." />
 
       {/* Thickness */}
       <section>
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Thickness</h3>
-        <div className="flex gap-3">
-          {THICKNESS_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setSetting('border_thickness', opt.value)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm ${
-                thickness === opt.value ? selectedClasses : unselectedClasses
-              }`}
-            >
-              <div className={`h-5 ${opt.barWidth} bg-gray-700 rounded-full`} />
-              {opt.label}
-            </button>
+        <Slider
+          label="Thickness"
+          min={0}
+          max={2}
+          step={1}
+          value={thicknessIndex}
+          onChange={(val) => setSetting('border_thickness', THICKNESS_ENUM[val])}
+        />
+        <div className="flex justify-between mt-1" style={{ fontSize: 'var(--text-xs, 0.75rem)', color: 'var(--color-text-secondary, #6b7280)' }}>
+          {THICKNESS_LABELS.map((label) => (
+            <span key={label}>{label}</span>
           ))}
         </div>
       </section>
 
       {/* Position */}
       <section>
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Position</h3>
-        <div className="flex gap-3">
-          {POSITION_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setSetting('border_position', opt.value)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm ${
-                position === opt.value ? selectedClasses : unselectedClasses
-              }`}
-            >
-              <PositionDiagram position={opt.value} />
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <SectionHeader title="Position" />
+        <PositionSelector position={position} onChange={(pos) => setSetting('border_position', pos)} />
       </section>
 
       {/* Color Palette */}
       <section>
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Color Palette</h3>
+        <SectionHeader title="Color Palette" />
         <div className="flex gap-3">
           {PALETTE_OPTIONS.map((opt) => (
-            <button
+            <Card
               key={opt.value}
+              selected={palette === opt.value}
               onClick={() => setSetting('color_palette', opt.value)}
-              className={`flex flex-col items-start gap-2 px-4 py-3 rounded-lg border text-sm ${
-                palette === opt.value ? selectedClasses : unselectedClasses
-              }`}
             >
-              <div className="flex gap-1">
+              <div className="flex gap-1.5 mb-2">
                 {opt.colors.map((color, i) => (
                   <div
                     key={i}
-                    className="w-5 h-5 rounded-full"
+                    data-testid="color-swatch"
+                    className="w-6 h-6 rounded-full"
                     style={{ backgroundColor: color }}
                   />
                 ))}
               </div>
-              <span className="font-medium">{opt.label}</span>
-              <span className="text-xs text-gray-500">{opt.description}</span>
-            </button>
+              <span style={{ fontSize: 'var(--text-sm, 0.875rem)', fontWeight: 600, color: 'var(--color-text, #111827)' }}>
+                {opt.label}
+              </span>
+              <p style={{ fontSize: 'var(--text-xs, 0.75rem)', color: 'var(--color-text-secondary, #6b7280)', marginTop: '2px' }}>
+                {opt.description}
+              </p>
+            </Card>
           ))}
         </div>
       </section>
 
       {/* Intensity */}
       <section>
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Intensity</h3>
-        <div className="flex gap-3">
-          {INTENSITY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setSetting('color_intensity', opt.value)}
-              className={`flex flex-col items-start px-4 py-2 rounded-lg border text-sm ${
-                intensity === opt.value ? selectedClasses : unselectedClasses
-              }`}
-            >
-              <span className="font-medium">{opt.label}</span>
-              <span className="text-xs text-gray-500">{opt.description}</span>
-            </button>
+        <Slider
+          label="Intensity"
+          min={0}
+          max={2}
+          step={1}
+          value={intensityIndex}
+          onChange={(val) => setSetting('color_intensity', INTENSITY_ENUM[val])}
+        />
+        <div className="flex justify-between mt-1" style={{ fontSize: 'var(--text-xs, 0.75rem)', color: 'var(--color-text-secondary, #6b7280)' }}>
+          {INTENSITY_LABELS.map((label) => (
+            <span key={label}>{label}</span>
           ))}
         </div>
       </section>
 
       {/* Reset */}
       <section>
-        <button
-          onClick={resetToDefaults}
-          className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
-        >
+        <Button variant="secondary" onClick={resetToDefaults}>
           Reset to Defaults
-        </button>
+        </Button>
       </section>
     </div>
   );
 }
+
+export default BorderTab;

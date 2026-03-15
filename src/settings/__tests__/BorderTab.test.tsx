@@ -41,10 +41,10 @@ describe('BorderTab', () => {
   it('renders all four setting sections', () => {
     renderWithSettings();
 
-    expect(screen.getByText('Thickness')).toBeDefined();
-    expect(screen.getByText('Position')).toBeDefined();
-    expect(screen.getByText('Color Palette')).toBeDefined();
-    expect(screen.getByText('Intensity')).toBeDefined();
+    expect(screen.getByText(/thickness/i)).toBeDefined();
+    expect(screen.getByText(/position/i)).toBeDefined();
+    expect(screen.getByText(/color palette/i)).toBeDefined();
+    expect(screen.getByText(/intensity/i)).toBeDefined();
   });
 
   it('renders the page heading', () => {
@@ -53,64 +53,46 @@ describe('BorderTab', () => {
     expect(screen.getByText('Border Settings')).toBeDefined();
   });
 
-  it('shows correct default thickness selection', () => {
+  it('shows correct default thickness selection (medium = slider value 1)', () => {
     renderWithSettings();
 
-    const mediumBtn = screen.getByRole('button', { name: /Medium/ });
-    expect(mediumBtn.className).toContain('ring-blue-500');
+    const sliders = screen.getAllByRole('slider');
+    expect(sliders[0]).toBeDefined();
+    expect((sliders[0] as HTMLInputElement).value).toBe('1');
   });
 
-  it('shows correct default position selection', () => {
+  it('shows correct default intensity selection (normal = slider value 1)', () => {
     renderWithSettings();
 
-    const allBtn = screen.getByRole('button', { name: /All Edges/ });
-    expect(allBtn.className).toContain('ring-blue-500');
+    const sliders = screen.getAllByRole('slider');
+    expect(sliders[1]).toBeDefined();
+    expect((sliders[1] as HTMLInputElement).value).toBe('1');
   });
 
-  it('shows correct default palette selection', () => {
-    renderWithSettings();
-
-    const ambientBtn = screen.getByRole('button', { name: /Ambient/ });
-    expect(ambientBtn.className).toContain('ring-blue-500');
-  });
-
-  it('shows correct default intensity selection', () => {
-    renderWithSettings();
-
-    const normalBtn = screen.getByRole('button', { name: /Normal/ });
-    expect(normalBtn.className).toContain('ring-blue-500');
-  });
-
-  it('calls setSetting when clicking a thickness option', () => {
+  it('calls setSetting when changing thickness slider', () => {
     const { mockSetSetting } = renderWithSettings();
+    const sliders = screen.getAllByRole('slider');
 
-    fireEvent.click(screen.getByRole('button', { name: /Thick/ }));
+    fireEvent.change(sliders[0], { target: { value: '2' } });
 
     expect(mockSetSetting).toHaveBeenCalledWith('border_thickness', 'thick');
   });
 
-  it('calls setSetting when clicking a position option', () => {
+  it('calls setSetting when changing intensity slider', () => {
     const { mockSetSetting } = renderWithSettings();
+    const sliders = screen.getAllByRole('slider');
 
-    fireEvent.click(screen.getByRole('button', { name: /Top Only/ }));
+    fireEvent.change(sliders[1], { target: { value: '2' } });
 
-    expect(mockSetSetting).toHaveBeenCalledWith('border_position', 'top');
+    expect(mockSetSetting).toHaveBeenCalledWith('color_intensity', 'vivid');
   });
 
   it('calls setSetting when clicking a palette option', () => {
     const { mockSetSetting } = renderWithSettings();
 
-    fireEvent.click(screen.getByRole('button', { name: /Ocean/ }));
+    fireEvent.click(screen.getByText('Ocean'));
 
     expect(mockSetSetting).toHaveBeenCalledWith('color_palette', 'ocean');
-  });
-
-  it('calls setSetting when clicking an intensity option', () => {
-    const { mockSetSetting } = renderWithSettings();
-
-    fireEvent.click(screen.getByRole('button', { name: /Vivid/ }));
-
-    expect(mockSetSetting).toHaveBeenCalledWith('color_intensity', 'vivid');
   });
 
   it('reset button calls setSetting for all four keys with defaults', () => {
@@ -124,21 +106,12 @@ describe('BorderTab', () => {
     expect(mockSetSetting).toHaveBeenCalledWith('color_intensity', 'normal');
   });
 
-  it('renders all thickness options', () => {
+  it('renders thickness labels', () => {
     renderWithSettings();
 
-    expect(screen.getByRole('button', { name: /Thin/ })).toBeDefined();
-    expect(screen.getByRole('button', { name: /Medium/ })).toBeDefined();
-    expect(screen.getByRole('button', { name: /Thick/ })).toBeDefined();
-  });
-
-  it('renders all position options', () => {
-    renderWithSettings();
-
-    expect(screen.getByRole('button', { name: /All Edges/ })).toBeDefined();
-    expect(screen.getByRole('button', { name: /Top Only/ })).toBeDefined();
-    expect(screen.getByRole('button', { name: /Sides Only/ })).toBeDefined();
-    expect(screen.getByRole('button', { name: /Bottom Only/ })).toBeDefined();
+    expect(screen.getByText('Thin')).toBeDefined();
+    expect(screen.getByText('Medium')).toBeDefined();
+    expect(screen.getByText('Thick')).toBeDefined();
   });
 
   it('renders both palette options with descriptions', () => {
@@ -146,5 +119,20 @@ describe('BorderTab', () => {
 
     expect(screen.getByText(/Green.*purple/)).toBeDefined();
     expect(screen.getByText(/Blue.*orange.*colorblind/)).toBeDefined();
+  });
+
+  it('renders interactive position selector', () => {
+    renderWithSettings();
+
+    expect(screen.getByTestId('position-selector')).toBeDefined();
+  });
+
+  it('renders position selector with clickable edges', () => {
+    renderWithSettings();
+
+    expect(screen.getByRole('button', { name: /toggle top edge/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /toggle bottom edge/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /toggle left edge/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /toggle right edge/i })).toBeDefined();
   });
 });
