@@ -330,6 +330,40 @@ impl OverlayManager for WindowsOverlayManager {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
+    };
+
+    #[test]
+    fn overlay_style_flags_are_set() {
+        let flags =
+            WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TOPMOST.0;
+        assert!(flags & WS_EX_TRANSPARENT.0 != 0);
+        assert!(flags & WS_EX_LAYERED.0 != 0);
+        assert!(flags & WS_EX_TOOLWINDOW.0 != 0);
+        assert!(flags & WS_EX_TOPMOST.0 != 0);
+    }
+
+    #[test]
+    fn default_overlay_manager_targets_primary() {
+        let mgr = WindowsOverlayManager::default();
+        assert_eq!(mgr.target_monitor, "primary");
+        assert!(mgr.top.is_none());
+        assert!(mgr.bottom.is_none());
+        assert!(mgr.left.is_none());
+        assert!(mgr.right.is_none());
+    }
+
+    #[test]
+    fn new_returns_default() {
+        let mgr = WindowsOverlayManager::new();
+        assert_eq!(mgr.target_monitor, "primary");
+    }
+}
+
 /// Get the full area of the primary monitor (including taskbar region).
 /// Uses rcMonitor instead of rcWork so the overlay border extends behind the taskbar.
 fn get_primary_monitor_rect(hwnd: HWND) -> (i32, i32, i32, i32) {

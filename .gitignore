@@ -5,6 +5,7 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .locks/
+.superpowers/
 src-tauri/.cargo/config.toml
 morph.db
 morph.db-shm

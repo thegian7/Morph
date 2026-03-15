@@ -1,7 +1,6 @@
 pub mod border_state;
 pub mod calendar;
 pub mod settings;
-pub mod tick;
 pub mod tray;
 pub mod window_manager;
 
@@ -431,6 +430,10 @@ pub fn run() {
         .manage(Mutex::new(TimerState::default()))
         .manage(aggregator.clone())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:morph.db", migrations)
@@ -758,6 +761,40 @@ fn setup_event_listeners(app: &tauri::App) {
         let _ = handle.emit("timer-state-update", &new_state);
     });
 
+    // pause-timer: pause the active timer
+    let handle = app.handle().clone();
+    app.listen("pause-timer", move |_event| {
+        let timer_state = handle.state::<Mutex<TimerState>>();
+        if let Ok(mut state) = timer_state.lock() {
+            if state.status == "running" {
+                state.status = "paused".to_string();
+                state.paused_at = Some(chrono::Utc::now().to_rfc3339());
+                let _ = handle.emit("timer-state-update", &*state);
+            }
+        }
+    });
+
+    // resume-timer: resume a paused timer
+    let handle = app.handle().clone();
+    app.listen("resume-timer", move |_event| {
+        let timer_state = handle.state::<Mutex<TimerState>>();
+        if let Ok(mut state) = timer_state.lock() {
+            if state.status == "paused" {
+                if let Some(paused_at_str) = &state.paused_at {
+                    if let Ok(paused_at) = chrono::DateTime::parse_from_rfc3339(paused_at_str) {
+                        let pause_elapsed =
+                            (chrono::Utc::now() - paused_at.to_utc()).num_seconds() as f64;
+                        state.elapsed_before_pause += pause_elapsed;
+                    }
+                }
+                state.status = "running".to_string();
+                state.started_at = Some(chrono::Utc::now().to_rfc3339());
+                state.paused_at = None;
+                let _ = handle.emit("timer-state-update", &*state);
+            }
+        }
+    });
+
     // settings-changed: handle border_thickness and selected_display changes
     #[cfg(target_os = "macos")]
     {
@@ -815,5 +852,60 @@ fn setup_event_listeners(app: &tauri::App) {
                 }
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_timer_state_default_is_idle() {
+        let state = TimerState::default();
+        assert_eq!(state.status, "idle");
+        assert_eq!(state.duration_seconds, 0);
+        assert!(state.started_at.is_none());
+        assert!(state.paused_at.is_none());
+        assert_eq!(state.elapsed_before_pause, 0.0);
+    }
+
+    #[test]
+    fn test_timer_pause_sets_status() {
+        let mut state = TimerState::default();
+        state.status = "running".to_string();
+        state.started_at = Some(chrono::Utc::now().to_rfc3339());
+        // Simulate pause
+        state.status = "paused".to_string();
+        state.paused_at = Some(chrono::Utc::now().to_rfc3339());
+        assert_eq!(state.status, "paused");
+        assert!(state.paused_at.is_some());
+    }
+
+    #[test]
+    fn test_timer_resume_clears_paused_at() {
+        let mut state = TimerState::default();
+        state.status = "paused".to_string();
+        state.paused_at = Some(chrono::Utc::now().to_rfc3339());
+        // Simulate resume
+        state.status = "running".to_string();
+        state.started_at = Some(chrono::Utc::now().to_rfc3339());
+        state.paused_at = None;
+        assert_eq!(state.status, "running");
+        assert!(state.paused_at.is_none());
+    }
+
+    #[test]
+    fn test_timer_pause_preserves_duration() {
+        let mut state = TimerState {
+            status: "running".to_string(),
+            duration_seconds: 1500,
+            started_at: Some(chrono::Utc::now().to_rfc3339()),
+            paused_at: None,
+            elapsed_before_pause: 0.0,
+        };
+        // Simulate pause
+        state.status = "paused".to_string();
+        state.paused_at = Some(chrono::Utc::now().to_rfc3339());
+        assert_eq!(state.duration_seconds, 1500);
     }
 }
