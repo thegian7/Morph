@@ -19,7 +19,8 @@
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:all": "npm run lint && npm run format && npm run typecheck && npm run test"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.0",
