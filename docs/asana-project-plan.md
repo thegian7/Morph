@@ -75,7 +75,7 @@
 
 ### 3.1 Technical Spikes
 
-#### TS-1: Spike -- Transparent Click-Through Overlay on macOS
+#### TS-1: Spike -- Transparent Click-Through Overlay on macOS [SHIPPED: 78fca36]
 
 **Description:** Build a minimal Tauri 2 app that creates a transparent, frameless, always-on-top window on macOS. Render four colored divs along the screen edges. Enable `setIgnoreCursorEvents(true)`. Verify that apps beneath the overlay remain fully interactive (mouse clicks, drags, keyboard input all pass through). Measure idle CPU/GPU usage.
 
@@ -94,7 +94,7 @@
 
 ---
 
-#### TS-2: Spike -- Transparent Click-Through Overlay on Windows
+#### TS-2: Spike -- Transparent Click-Through Overlay on Windows [SHIPPED: b8f441f]
 
 **Description:** Test the same Tauri 2 overlay on Windows 10 and Windows 11. The technical analysis flagged `setIgnoreCursorEvents` bugs on Windows (Tauri issue #11461). If the Tauri API fails, implement fallback using native Windows API: access the `HWND` and set `WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_TOPMOST` via the `windows` crate.
 
@@ -113,7 +113,7 @@
 
 ---
 
-#### TS-3: Spike -- macOS Fullscreen Space Overlay
+#### TS-3: Spike -- macOS Fullscreen Space Overlay [SHIPPED: 9da68c5]
 
 **Description:** Using the `objc2` crate, access the native `NSWindow` from Tauri's window handle. Set `window.level` to `.screenSaver` or `CGWindowLevelForKey(.maximumWindow)`. Set `collectionBehavior` to `[.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]`. Verify overlay appears above native macOS fullscreen apps (Safari, Zoom, etc.) and persists across all Spaces.
 
@@ -132,7 +132,7 @@
 
 ---
 
-#### TS-4: Spike -- Four-Window vs. Single-Window Architecture
+#### TS-4: Spike -- Four-Window vs. Single-Window Architecture [SHIPPED: b8f441f]
 
 **Description:** Compare two overlay approaches: (A) single fullscreen transparent window with border-only rendering, and (B) four thin windows positioned at each screen edge. Evaluate compositor performance, click-through behavior, fullscreen compatibility, and window positioning reliability. Test display resolution change handling (connect/disconnect external monitor, change resolution).
 
@@ -151,7 +151,7 @@
 
 ---
 
-#### TS-5: Spike -- Google Calendar OAuth2 PKCE Flow
+#### TS-5: Spike -- Google Calendar OAuth2 PKCE Flow [SHIPPED: a88e359]
 
 **Description:** Implement the Google Calendar OAuth2 PKCE flow in a Tauri app. Open the system browser for authorization, listen on a localhost redirect URI, exchange the code for tokens, store tokens in the macOS Keychain (using `keyring` crate), and fetch upcoming events from the Calendar API. Handle token refresh.
 
@@ -171,7 +171,7 @@
 
 ---
 
-#### TS-6: Spike -- Microsoft Graph OAuth2 Flow
+#### TS-6: Spike -- Microsoft Graph OAuth2 Flow [SHIPPED: b8f441f]
 
 **Description:** Implement Microsoft Graph OAuth2 authorization code flow with PKCE for calendar access. Register the app in Azure AD (Entra ID). Use scopes `Calendars.Read` and `offline_access`. Handle both personal Microsoft accounts and work/school accounts. Store tokens in OS keychain.
 
@@ -192,7 +192,7 @@
 
 ### 3.2 Core Overlay Engine
 
-#### OE-1: Set Up Tauri 2 Project Scaffold
+#### OE-1: Set Up Tauri 2 Project Scaffold [SHIPPED: 7f2f037]
 
 **Description:** Initialize the Tauri 2 project with React + TypeScript frontend, Tailwind CSS, and the recommended project structure. Configure `tauri.conf.json` for the overlay window(s) and a separate settings window. Set up the Rust workspace with platform-specific modules (`window_manager/macos.rs`, `window_manager/windows.rs`). Add linting (ESLint, clippy), formatting (Prettier, rustfmt), and basic CI.
 
@@ -211,7 +211,7 @@
 
 ---
 
-#### OE-2: Implement Overlay Window Rendering (Chosen Architecture)
+#### OE-2: Implement Overlay Window Rendering (Chosen Architecture) [SHIPPED: bec6a95]
 
 **Description:** Based on the spike findings (TS-4), implement the overlay border rendering using the chosen approach (four thin windows or single fullscreen). Render colored `<div>` strips along the selected edges. Support border position setting (all edges, top only, sides only, bottom only). Apply CSS `transition` on `background-color` with configurable duration.
 
@@ -230,7 +230,7 @@
 
 ---
 
-#### OE-3: Implement Platform-Specific Window Management (macOS)
+#### OE-3: Implement Platform-Specific Window Management (macOS) [SHIPPED: a7d6b88]
 
 **Description:** Create the macOS `OverlayManager` implementation using `objc2`. Set `NSWindowLevel` above fullscreen, configure `collectionBehavior` for all Spaces, enable click-through. This is production code evolved from the spike (TS-3).
 
@@ -248,7 +248,7 @@
 
 ---
 
-#### OE-4: Implement Platform-Specific Window Management (Windows)
+#### OE-4: Implement Platform-Specific Window Management (Windows) [SHIPPED: a7d6b88]
 
 **Description:** Create the Windows `OverlayManager` implementation using the `windows` crate. Set extended window styles for click-through and always-on-top. Use the approach validated in the spike (TS-2) -- either Tauri's API or native fallback.
 
@@ -265,7 +265,7 @@
 
 ---
 
-#### OE-5: Implement Pulse Animation
+#### OE-5: Implement Pulse Animation [SHIPPED: c7d4809]
 
 **Description:** Add CSS `opacity` pulse animation to the border. Use GPU-composited properties only (`opacity`, `transform`). Pulse speed is driven by `BorderState.pulseSpeed` (milliseconds per cycle, 0 = no pulse). Ensure the animation is paused when not needed to reduce power draw.
 
@@ -283,7 +283,7 @@
 
 ---
 
-#### OE-6: Overlay-to-Backend Communication Bridge
+#### OE-6: Overlay-to-Backend Communication Bridge [SHIPPED: 48688d4]
 
 **Description:** Set up the Tauri command/event bridge between the Rust backend and the overlay frontend. The backend emits `BorderState` updates via Tauri events. The overlay window listens for these events and updates its rendering. This decouples the color engine from the overlay rendering.
 
@@ -302,7 +302,7 @@
 
 ### 3.3 Color Engine
 
-#### CE-1: Define Color Engine Types and Interfaces
+#### CE-1: Define Color Engine Types and Interfaces [SHIPPED: cc52c4e]
 
 **Description:** Create the TypeScript module with all types defined in the PRD: `CalendarEvent`, `BorderState`, `Phase`, `UserSettings`. Define the `getBorderState(events, now, settings)` function signature. Include all 11 phase values from the PRD. Define the color palette constants (hex values for each phase).
 
@@ -320,7 +320,7 @@
 
 ---
 
-#### CE-2: Implement Free Time and Warning States
+#### CE-2: Implement Free Time and Warning States [SHIPPED: ccba8eb]
 
 **Description:** Implement the `getBorderState` logic for states when the user is NOT currently in a session: `free-deep` (60+ min to next event), `warning-far` (30 min), `warning-mid` (15 min), `warning-near` (5 min), `warning-imminent` (2 min), and the `no events` calm state. Compute smooth color interpolation between states based on exact time remaining. Warning thresholds should use the user's configured values.
 
@@ -339,7 +339,7 @@
 
 ---
 
-#### CE-3: Implement In-Session States
+#### CE-3: Implement In-Session States [SHIPPED: cc52c4e]
 
 **Description:** Implement `getBorderState` for when the user is currently inside a calendar event: `in-session-early` (0-40%), `in-session-mid` (40-70%), `in-session-late` (70-90%), `in-session-end` (90-100%). The phase is determined by the percentage of elapsed session time. Include the end-of-session slow red strobe.
 
@@ -358,7 +358,7 @@
 
 ---
 
-#### CE-4: Implement Gap and Transition States
+#### CE-4: Implement Gap and Transition States [SHIPPED: 472e360]
 
 **Description:** Implement `getBorderState` for back-to-back meeting gaps: `gap-short` and `gap-long`. A 5-minute gap should feel urgent (amber/orange), a 30-minute gap should feel calm (green). Handle the transition from one event ending to the next event's warning sequence.
 
@@ -377,7 +377,7 @@
 
 ---
 
-#### CE-5: Implement Event Filtering Logic
+#### CE-5: Implement Event Filtering Logic [SHIPPED: 68a2670]
 
 **Description:** Add event filtering to the color engine. All-day events should be ignored by default. Users can mark specific calendars or events as ignored. Filtered events should not affect the border state calculation.
 
@@ -395,7 +395,7 @@
 
 ---
 
-#### CE-6: Color Engine Integration Test Suite
+#### CE-6: Color Engine Integration Test Suite [SHIPPED: 956c784]
 
 **Description:** Build a comprehensive integration test suite that runs the color engine through realistic day scenarios: a day with back-to-back meetings, a day with long free blocks, a day with many short events, an empty calendar day. Use time simulation to advance through the day and verify state transitions.
 
@@ -416,7 +416,7 @@
 
 ### 3.4 Calendar Integrations
 
-#### CAL-1: Build Calendar Provider Abstraction Layer
+#### CAL-1: Build Calendar Provider Abstraction Layer [SHIPPED: 3083dc2]
 
 **Description:** Create a Rust trait `CalendarProvider` and a `CalendarAggregator` that manages multiple providers. The aggregator merges events from all connected providers, deduplicates, and sorts by start time. It exposes a single `fetch_upcoming_events()` method that the color engine consumes.
 
@@ -435,7 +435,7 @@
 
 ---
 
-#### CAL-2: Implement Google Calendar Provider
+#### CAL-2: Implement Google Calendar Provider [SHIPPED: 00aec39]
 
 **Description:** Build the Google Calendar `CalendarProvider` implementation. Handle the full OAuth2 PKCE flow (evolved from spike TS-5): open system browser, capture auth code on localhost, exchange for tokens, store in OS keychain. Implement `fetch_events` using the Google Calendar API `events.list` endpoint. Implement token refresh.
 
@@ -456,7 +456,7 @@
 
 ---
 
-#### CAL-3: Implement Microsoft Graph Calendar Provider
+#### CAL-3: Implement Microsoft Graph Calendar Provider [SHIPPED: 00aec39]
 
 **Description:** Build the Microsoft Graph `CalendarProvider` implementation. Handle OAuth2 authorization code flow with PKCE (evolved from spike TS-6). Use the `calendarView` endpoint for event fetching. Support both personal Microsoft accounts and work/school accounts.
 
@@ -475,7 +475,7 @@
 
 ---
 
-#### CAL-4: Implement Apple EventKit Provider (macOS)
+#### CAL-4: Implement Apple EventKit Provider (macOS) [SHIPPED: 00aec39]
 
 **Description:** Build the Apple EventKit `CalendarProvider` implementation as a Tauri plugin. Request calendar access permission. Fetch events from `EKEventStore`. Listen for `EKEventStoreChangedNotification` for real-time updates instead of polling. Only compiled on macOS.
 
@@ -494,7 +494,7 @@
 
 ---
 
-#### CAL-5: Implement Calendar Polling Service
+#### CAL-5: Implement Calendar Polling Service [SHIPPED: 00aec39]
 
 **Description:** Create a background service that polls calendar providers every 60 seconds. Cache events in SQLite to survive network outages. Emit events to the frontend via Tauri events whenever the event list changes. The color engine recalculates on each poll update AND on a 1-second timer for smooth in-session progression.
 
@@ -514,7 +514,7 @@
 
 ---
 
-#### CAL-6: Calendar Connection UI
+#### CAL-6: Calendar Connection UI [SHIPPED: 640445e]
 
 **Description:** Build the calendar connection management UI in the settings window. Show connected providers with their account name and status. Provide "Connect" buttons for each supported provider. Show a "Disconnect" option for connected providers. Display sync status and last sync time.
 
@@ -535,7 +535,7 @@
 
 ### 3.5 Manual Timer
 
-#### MT-1: Implement Manual Timer State Machine
+#### MT-1: Implement Manual Timer State Machine [SHIPPED: 7f2f037]
 
 **Description:** Create a TypeScript module for the manual timer. Supports start, pause, resume, stop, and reset actions. Tracks elapsed time and total duration. Feeds into the color engine as a synthetic calendar event (same interface as real events, enabling code reuse).
 
@@ -554,7 +554,7 @@
 
 ---
 
-#### MT-2: Implement Timer Presets
+#### MT-2: Implement Timer Presets [SHIPPED: 872dd0a]
 
 **Description:** Add quick-start timer presets: 15, 25, 30, 45, 60, 90 minutes. Presets are accessible from both the system tray menu and the settings window. Starting a preset immediately begins the timer.
 
@@ -574,7 +574,7 @@
 
 ### 3.6 Settings UI
 
-#### SET-1: Create Settings Window Shell
+#### SET-1: Create Settings Window Shell [SHIPPED: 640445e]
 
 **Description:** Create the settings window as a separate Tauri window. Set up React routing for settings sections (General, Border, Calendar, Timer, About). Use Tailwind CSS for styling. Settings window should open from the system tray and be a standard resizable window (not overlay).
 
@@ -592,7 +592,7 @@
 
 ---
 
-#### SET-2: Implement Border Settings
+#### SET-2: Implement Border Settings [SHIPPED: 640445e]
 
 **Description:** Build the border settings section. Controls: border thickness (thin/medium/thick with visual preview), border position (all edges/top/sides/bottom), color intensity (subtle/normal/vivid). Changes should apply immediately (live preview on the overlay).
 
@@ -611,7 +611,7 @@
 
 ---
 
-#### SET-3: Implement Warning Window Settings
+#### SET-3: Implement Warning Window Settings [SHIPPED: 640445e]
 
 **Description:** Build the warning timing settings section. Allow users to configure which warning thresholds are active (30 min, 15 min, 5 min, 2 min). Each threshold can be toggled on/off. Free tier is limited to 5 min and 2 min only (pro feature gate).
 
@@ -628,7 +628,7 @@
 
 ---
 
-#### SET-4: Implement General Settings
+#### SET-4: Implement General Settings [SHIPPED: 640445e]
 
 **Description:** Build the general settings section. Controls: launch at login toggle, pause/snooze border (for N minutes), app version info. On macOS, "launch at login" uses `SMAppService`. On Windows, uses the registry Run key or startup folder.
 
@@ -648,7 +648,7 @@
 
 ### 3.7 System Tray / Menu Bar
 
-#### ST-1: Implement System Tray / Menu Bar Icon
+#### ST-1: Implement System Tray / Menu Bar Icon [SHIPPED: 4bde295]
 
 **Description:** Create the system tray (Windows) / menu bar (macOS) presence. The icon should reflect the current border state using a colored dot or tinted icon. Clicking the icon shows a context menu. The app should run as a tray-only app (no dock icon on macOS, no taskbar entry on Windows).
 
@@ -667,7 +667,7 @@
 
 ---
 
-#### ST-2: Implement Tray Context Menu
+#### ST-2: Implement Tray Context Menu [SHIPPED: dbcfb7a]
 
 **Description:** Build the context menu that appears when clicking/right-clicking the tray icon. Menu items: current state label, timer presets submenu, pause/resume, open settings, quit. The menu should update dynamically (e.g., show "Resume" when paused, show active timer remaining time).
 
@@ -881,7 +881,7 @@
 
 ---
 
-#### QA-4: Onboarding Flow
+#### QA-4: Onboarding Flow [SHIPPED: c03dffa]
 
 **Description:** Build a first-run onboarding experience that: welcomes the user, explains what the border does, guides through macOS permission grants (if needed), offers to connect a calendar, and starts a demo timer so the user can see the border in action immediately.
 
@@ -995,7 +995,7 @@
 
 ---
 
-#### LP-6: Set Up SQLite Database Schema
+#### LP-6: Set Up SQLite Database Schema [SHIPPED: a72160e]
 
 **Description:** Design and implement the local SQLite database schema for storing settings, cached calendar events, license state, and timer history. Use Tauri's SQLite plugin. Include migration support for future schema changes.
 
