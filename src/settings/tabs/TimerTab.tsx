@@ -3,6 +3,8 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { getDefaultPresets } from '@/lib/timer/presets';
 import { getRemainingSeconds } from '@/lib/timer/index';
 import type { TimerState, TimerPreset } from '@/lib/timer/types';
+import { ProgressRing, Card, Button, SectionHeader } from '@/shared/components';
+import { useSettings } from '../hooks/useSettings';
 
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -19,8 +21,23 @@ function formatDuration(seconds: number): string {
   return `${Math.floor(seconds / 60)}m`;
 }
 
+function loadCustomPresets(json: string | undefined): TimerPreset[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
 export default function TimerTab() {
-  const presets = getDefaultPresets();
+  const { getSetting, setSetting } = useSettings();
+  const defaultPresets = getDefaultPresets();
+  const customPresets = loadCustomPresets(getSetting('custom_timer_presets'));
+  const allPresets = [...defaultPresets, ...customPresets];
+
   const [timer, setTimer] = useState<TimerState>({
     status: 'idle',
     durationSeconds: 0,
@@ -29,8 +46,10 @@ export default function TimerTab() {
     elapsedBeforePause: 0,
   });
   const [remaining, setRemaining] = useState(0);
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customMinutes, setCustomMinutes] = useState('');
 
-  // Listen for timer state updates from the backend
   useEffect(() => {
     const unlisten = listen<TimerState>('timer-state-update', (event) => {
       setTimer(event.payload);
@@ -40,7 +59,6 @@ export default function TimerTab() {
     };
   }, []);
 
-  // Update remaining time every second when running
   useEffect(() => {
     if (timer.status !== 'running') {
       if (timer.status === 'paused') {
@@ -59,7 +77,9 @@ export default function TimerTab() {
 
   const isActive = timer.status === 'running' || timer.status === 'paused';
   const progress =
-    timer.durationSeconds > 0 ? Math.max(0, Math.min(1, 1 - remaining / timer.durationSeconds)) : 0;
+    timer.durationSeconds > 0
+      ? Math.max(0, Math.min(1, 1 - remaining / timer.durationSeconds))
+      : 0;
 
   const handleStart = useCallback((preset: TimerPreset) => {
     emit('start-timer', preset.durationSeconds);
@@ -77,65 +97,201 @@ export default function TimerTab() {
     setRemaining(0);
   }, []);
 
+  const handlePause = useCallback(() => {
+    emit('pause-timer', {});
+  }, []);
+
+  const handleResume = useCallback(() => {
+    emit('resume-timer', {});
+  }, []);
+
+  const handleAddCustomPreset = useCallback(() => {
+    const name = customName.trim();
+    const minutes = parseInt(customMinutes, 10);
+    if (!name || isNaN(minutes) || minutes <= 0) return;
+
+    const newPreset: TimerPreset = {
+      id: `custom-${Date.now()}`,
+      name,
+      durationSeconds: minutes * 60,
+    };
+
+    const updated = [...customPresets, newPreset];
+    setSetting('custom_timer_presets', JSON.stringify(updated));
+    setCustomName('');
+    setCustomMinutes('');
+    setShowCustomForm(false);
+  }, [customName, customMinutes, customPresets, setSetting]);
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-lg font-semibold mb-2">Timer</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Start a focus timer. The border overlay will reflect the timer's progress.
-        </p>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+      <SectionHeader
+        title="Timer"
+        description="Start a focus timer. The border overlay will reflect the timer's progress."
+      />
 
       {/* Active Timer Display */}
-      {isActive && (
-        <section className="bg-gray-50 rounded-lg p-6">
-          <div className="text-center">
-            <p className="text-4xl font-mono font-bold text-gray-900 mb-2">
-              {formatTime(remaining)}
-            </p>
-            <p className="text-sm text-gray-500 mb-4">
-              {timer.status === 'paused' ? 'Paused' : 'Running'}
-            </p>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 'var(--space-4)',
+          padding: 'var(--space-6)',
+        }}
+      >
+        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <ProgressRing progress={progress} size={96} strokeWidth={4} />
+          <span
+            style={{
+              position: 'absolute',
+              fontVariantNumeric: 'tabular-nums',
+              fontSize: 'var(--text-xl)',
+              fontWeight: 700,
+              color: 'var(--color-text)',
+            }}
+          >
+            {isActive ? formatTime(remaining) : '--:--'}
+          </span>
+        </div>
 
-            {/* Progress bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
-                style={{ width: `${progress * 100}%` }}
-              />
-            </div>
+        {isActive && (
+          <p
+            style={{
+              fontSize: 'var(--text-sm)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            {timer.status === 'paused' ? 'Paused' : 'Running'}
+          </p>
+        )}
 
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={handleStop}
-                className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-              >
-                Stop
-              </button>
-            </div>
+        {isActive && (
+          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+            {timer.status === 'running' ? (
+              <Button variant="secondary" onClick={handlePause}>
+                Pause
+              </Button>
+            ) : (
+              <Button variant="primary" onClick={handleResume}>
+                Resume
+              </Button>
+            )}
+            <Button variant="ghost" onClick={handleStop}>
+              Stop
+            </Button>
           </div>
-        </section>
-      )}
+        )}
+      </div>
 
-      {/* Preset List */}
+      {/* Preset Grid */}
       <section>
-        <p className="text-sm font-medium text-gray-900 mb-3">Quick Start</p>
-        <div className="grid grid-cols-2 gap-3">
-          {presets.map((preset) => (
-            <button
+        <p
+          style={{
+            fontSize: 'var(--text-sm)',
+            fontWeight: 500,
+            color: 'var(--color-text)',
+            marginBottom: 'var(--space-3)',
+          }}
+        >
+          Quick Start
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+          {allPresets.map((preset) => (
+            <Card
               key={preset.id}
-              onClick={() => handleStart(preset)}
-              disabled={isActive}
-              className={`p-4 rounded-lg border text-left transition-colors ${
-                isActive
-                  ? 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
-                  : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
-              }`}
+              onClick={isActive ? undefined : () => handleStart(preset)}
+              className={isActive ? 'opacity-50' : ''}
             >
-              <p className="text-sm font-medium text-inherit">{preset.name}</p>
-              <p className="text-xs text-gray-400 mt-1">{formatDuration(preset.durationSeconds)}</p>
-            </button>
+              <p
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: 500,
+                  color: isActive ? 'var(--color-text-muted)' : 'var(--color-text)',
+                }}
+              >
+                {preset.name}
+              </p>
+              <p
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--color-text-muted)',
+                  marginTop: 'var(--space-1)',
+                }}
+              >
+                {formatDuration(preset.durationSeconds)}
+              </p>
+            </Card>
           ))}
+
+          {/* Add custom preset card */}
+          {!showCustomForm ? (
+            <Card
+              onClick={isActive ? undefined : () => setShowCustomForm(true)}
+              className={isActive ? 'opacity-50' : ''}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 44,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 'var(--text-xl)',
+                    color: 'var(--color-text-muted)',
+                  }}
+                >
+                  +
+                </span>
+              </div>
+            </Card>
+          ) : (
+            <Card>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  style={{
+                    fontSize: 'var(--text-sm)',
+                    padding: 'var(--space-1) var(--space-2)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 6,
+                    backgroundColor: 'var(--color-surface-base)',
+                    color: 'var(--color-text)',
+                  }}
+                />
+                <input
+                  type="number"
+                  placeholder="Minutes"
+                  value={customMinutes}
+                  onChange={(e) => setCustomMinutes(e.target.value)}
+                  min={1}
+                  style={{
+                    fontSize: 'var(--text-sm)',
+                    padding: 'var(--space-1) var(--space-2)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 6,
+                    backgroundColor: 'var(--color-surface-base)',
+                    color: 'var(--color-text)',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                  <Button variant="primary" onClick={handleAddCustomPreset}>
+                    Add
+                  </Button>
+                  <Button variant="ghost" onClick={() => setShowCustomForm(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
       </section>
     </div>

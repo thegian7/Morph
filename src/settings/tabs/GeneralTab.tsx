@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
+import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart';
 import { useSettings } from '../hooks/useSettings';
+import { Toggle, Card, SectionHeader, Chip } from '@/shared/components';
+import { useTheme, type ThemePreference } from '@/shared/hooks/useTheme';
 
 interface MonitorInfo {
   id: string;
@@ -15,15 +18,29 @@ interface MonitorInfo {
 
 const PAUSE_DURATIONS = [5, 15, 30, 60] as const;
 
-export default function GeneralTab() {
+const THEME_OPTIONS: { value: ThemePreference; label: string; swatch: string }[] = [
+  { value: 'system', label: 'System', swatch: 'linear-gradient(135deg, #f8f8f8 50%, #1a1a1a 50%)' },
+  { value: 'light', label: 'Light', swatch: '#f8f8f8' },
+  { value: 'dark', label: 'Dark', swatch: '#1a1a1a' },
+];
+
+export function GeneralTab() {
   const { getSetting, setSetting } = useSettings();
+  const { preference, setPreference } = useTheme();
   const launchAtLogin = getSetting('launch_at_login') === 'true';
   const selectedDisplay = getSetting('selected_display') ?? 'primary';
   const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
   const [pauseState, setPauseState] = useState<{ paused: boolean; minutes?: number }>({
     paused: false,
   });
-  const [showDurations, setShowDurations] = useState(false);
+
+  // Sync theme preference from settings on mount
+  const savedTheme = getSetting('theme_preference');
+  useEffect(() => {
+    if (savedTheme && (savedTheme === 'system' || savedTheme === 'light' || savedTheme === 'dark')) {
+      setPreference(savedTheme as ThemePreference);
+    }
+  }, [savedTheme, setPreference]);
 
   useEffect(() => {
     invoke<MonitorInfo[]>('get_available_monitors')
@@ -31,20 +48,28 @@ export default function GeneralTab() {
       .catch((err) => console.error('Failed to get monitors:', err));
   }, []);
 
-  function handleToggleLaunch() {
-    setSetting('launch_at_login', launchAtLogin ? 'false' : 'true');
+  function handleThemeChange(theme: ThemePreference) {
+    setPreference(theme);
+    setSetting('theme_preference', theme);
+  }
+
+  async function handleToggleLaunch() {
+    const newValue = !launchAtLogin;
+    setSetting('launch_at_login', newValue ? 'true' : 'false');
+    try {
+      if (newValue) {
+        await enable();
+      } else {
+        await disable();
+      }
+    } catch (err) {
+      console.error('Failed to toggle autostart:', err);
+    }
   }
 
   function handlePause(minutes: number) {
     emit('pause-border', { minutes });
     setPauseState({ paused: true, minutes });
-    setShowDurations(false);
-  }
-
-  function handlePauseUntilNext() {
-    emit('pause-border', { minutes: -1 });
-    setPauseState({ paused: true });
-    setShowDurations(false);
   }
 
   function handleResume() {
@@ -53,123 +78,124 @@ export default function GeneralTab() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-lg font-semibold mb-2">General Settings</h2>
-        <p className="text-sm text-gray-500 mb-6">App behavior and system preferences.</p>
-      </div>
+    <div className="space-y-6">
+      {/* Theme Picker */}
+      <section>
+        <SectionHeader title="Appearance" description="Choose your preferred color theme." />
+        <div className="flex gap-3">
+          {THEME_OPTIONS.map((opt) => (
+            <Card
+              key={opt.value}
+              selected={preference === opt.value}
+              onClick={() => handleThemeChange(opt.value)}
+              className="flex-1 text-center"
+            >
+              <div
+                className="w-8 h-8 rounded-full mx-auto mb-2 border border-gray-200"
+                style={{ background: opt.swatch }}
+              />
+              <span
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: preference === opt.value ? 600 : 400,
+                  color: 'var(--color-text)',
+                }}
+              >
+                {opt.label}
+              </span>
+            </Card>
+          ))}
+        </div>
+      </section>
 
       {/* Launch at Login */}
       <section>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-900">Launch at login</p>
-            <p className="text-sm text-gray-500">Start Morph automatically when you log in</p>
-          </div>
-          <button
-            onClick={handleToggleLaunch}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              launchAtLogin ? 'bg-blue-500' : 'bg-gray-300'
-            }`}
-            role="switch"
-            aria-checked={launchAtLogin}
-            aria-label="Launch at login"
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                launchAtLogin ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
+        <SectionHeader title="Startup" description="Control how Morph behaves on login." />
+        <Card>
+          <Toggle
+            label="Launch at login"
+            checked={launchAtLogin}
+            onChange={handleToggleLaunch}
+          />
+        </Card>
       </section>
 
       {/* Display Selection — only shown with multiple monitors */}
       {monitors.length > 1 && (
         <section>
-          <p className="text-sm font-medium text-gray-900 mb-2">Display</p>
-          <p className="text-sm text-gray-500 mb-3">
-            Choose which monitor shows the border overlay.
-          </p>
+          <SectionHeader title="Display" description="Choose which monitor shows the border overlay." />
           <div className="flex flex-wrap gap-3">
-            {monitors.map((monitor) => {
-              const isSelected = selectedDisplay === monitor.id;
-              const selectedClasses = 'ring-2 ring-blue-500 border-blue-500 bg-blue-50';
-              const unselectedClasses = 'border-gray-200 hover:border-gray-300';
-              return (
-                <button
-                  key={monitor.id}
-                  onClick={() => setSetting('selected_display', monitor.id)}
-                  className={`flex flex-col items-start px-4 py-2 rounded-lg border text-sm ${
-                    isSelected ? selectedClasses : unselectedClasses
-                  }`}
-                >
-                  <span className="font-medium">
-                    {monitor.name}
-                    {monitor.is_primary && (
-                      <span className="ml-1.5 text-xs text-blue-600 font-normal">(Primary)</span>
-                    )}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {Math.round(monitor.width)} &times; {Math.round(monitor.height)}
-                  </span>
-                </button>
-              );
-            })}
+            {monitors.map((monitor) => (
+              <Card
+                key={monitor.id}
+                selected={selectedDisplay === monitor.id}
+                onClick={() => setSetting('selected_display', monitor.id)}
+              >
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--color-text)' }}>
+                  {monitor.name}
+                  {monitor.is_primary && (
+                    <span style={{ marginLeft: '0.375rem', fontSize: 'var(--text-xs)', color: 'var(--color-primary)', fontWeight: 400 }}>
+                      (Primary)
+                    </span>
+                  )}
+                </span>
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', display: 'block' }}>
+                  {Math.round(monitor.width)} &times; {Math.round(monitor.height)}
+                </span>
+              </Card>
+            ))}
           </div>
         </section>
       )}
 
       {/* Pause / Snooze */}
       <section>
-        <p className="text-sm font-medium text-gray-900 mb-2">Pause Border</p>
-        <p className="text-sm text-gray-500 mb-3">Temporarily hide the border overlay.</p>
-
+        <SectionHeader title="Pause Border" description="Temporarily hide the border overlay." />
         {pauseState.paused ? (
-          <div className="flex items-center gap-3">
-            <p className="text-sm text-gray-700">
-              {pauseState.minutes
-                ? `Border paused for ${pauseState.minutes} min`
-                : 'Border paused until next event'}
-            </p>
-            <button
-              onClick={handleResume}
-              className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
-            >
-              Resume
-            </button>
-          </div>
+          <Card>
+            <div className="flex items-center justify-between">
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
+                {pauseState.minutes
+                  ? `Paused for ${pauseState.minutes} min`
+                  : 'Paused until next event'}
+              </span>
+              <button
+                onClick={handleResume}
+                className="px-3 py-1.5 rounded-lg font-medium cursor-pointer"
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  backgroundColor: 'var(--color-primary)',
+                  color: '#FFFFFF',
+                }}
+              >
+                Resume
+              </button>
+            </div>
+          </Card>
         ) : (
-          <div>
-            <button
-              onClick={() => setShowDurations(!showDurations)}
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-            >
-              Pause Border
-            </button>
-
-            {showDurations && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {PAUSE_DURATIONS.map((min) => (
-                  <button
-                    key={min}
-                    onClick={() => handlePause(min)}
-                    className="px-3 py-1.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 transition-colors"
-                  >
-                    {min} min
-                  </button>
-                ))}
-                <button
-                  onClick={handlePauseUntilNext}
-                  className="px-3 py-1.5 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 transition-colors"
-                >
-                  Until next event
-                </button>
-              </div>
-            )}
+          <div className="flex flex-wrap gap-2">
+            {PAUSE_DURATIONS.map((min) => (
+              <Chip
+                key={min}
+                label={`${min}m`}
+                selected={false}
+                onSelect={() => handlePause(min)}
+              />
+            ))}
+            <Chip
+              label="Until next event"
+              selected={false}
+              onSelect={() => {
+                emit('pause-border', { minutes: -1 });
+                setPauseState({ paused: true });
+              }}
+            />
           </div>
         )}
       </section>
     </div>
   );
 }
+
+// Keep default export for backward compatibility with existing imports
+export default GeneralTab;

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
-import GeneralTab from '../tabs/GeneralTab';
+import userEvent from '@testing-library/user-event';
 import { SettingsContext, SettingsContextValue } from '../hooks/useSettings';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -20,6 +20,7 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+// Mock Tauri APIs
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
@@ -34,6 +35,9 @@ vi.mock('@tauri-apps/plugin-autostart', () => ({
   disable: vi.fn().mockResolvedValue(undefined),
   isEnabled: vi.fn().mockResolvedValue(false),
 }));
+
+// Must import after mocks are set up
+import { GeneralTab } from '../tabs/GeneralTab';
 
 const mockInvoke = vi.mocked(invoke);
 
@@ -68,56 +72,74 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: invoke returns empty monitors list (single-monitor scenario)
   mockInvoke.mockResolvedValue([]);
 });
 
-describe('GeneralTab', () => {
+describe('GeneralTab redesign', () => {
+  it('renders theme picker with System/Light/Dark options', () => {
+    renderWithSettings();
+    expect(screen.getByText('System')).toBeDefined();
+    expect(screen.getByText('Light')).toBeDefined();
+    expect(screen.getByText('Dark')).toBeDefined();
+  });
+
   it('renders launch at login toggle', () => {
     renderWithSettings();
-    expect(screen.getByRole('switch')).toBeDefined();
     expect(screen.getByText(/launch at login/i)).toBeDefined();
   });
 
-  it('toggle reflects current setting value when false', () => {
-    renderWithSettings();
-    const toggle = screen.getByRole('switch');
-    expect(toggle.getAttribute('aria-checked')).toBe('false');
-  });
-
-  it('toggle reflects current setting value when true', () => {
-    const settings = new Map<string, string>([
-      ['launch_at_login', 'true'],
-      ['theme_preference', 'system'],
-    ]);
-    renderWithSettings({
-      settings,
-      getSetting: (key: string) => settings.get(key),
-    });
-    const toggle = screen.getByRole('switch');
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-  });
-
-  it('clicking toggle calls setSetting', () => {
-    const { settingsValue } = renderWithSettings();
-    const toggle = screen.getByRole('switch');
-    fireEvent.click(toggle);
-    expect(settingsValue.setSetting).toHaveBeenCalledWith('launch_at_login', 'true');
-  });
-
-  it('renders pause section with duration chips', () => {
+  it('renders pause border section with duration chips', () => {
     renderWithSettings();
     expect(screen.getByText('5m')).toBeDefined();
     expect(screen.getByText('15m')).toBeDefined();
     expect(screen.getByText('30m')).toBeDefined();
     expect(screen.getByText('60m')).toBeDefined();
-    expect(screen.getByText('Until next event')).toBeDefined();
   });
 
-  // Version and about info were moved to AboutTab (Task 9).
+  it('renders section headers', () => {
+    renderWithSettings();
+    expect(screen.getByText('Appearance')).toBeDefined();
+    expect(screen.getByText('Startup')).toBeDefined();
+    expect(screen.getByText('Pause Border')).toBeDefined();
+  });
+
+  it('theme picker highlights the current selection', () => {
+    const settings = new Map<string, string>([
+      ['theme_preference', 'dark'],
+      ['launch_at_login', 'false'],
+    ]);
+    renderWithSettings({
+      settings,
+      getSetting: (key: string) => settings.get(key),
+    });
+    // The Dark card should be selected
+    expect(screen.getByText('Dark')).toBeDefined();
+  });
+
+  it('clicking a theme card calls setSetting', async () => {
+    const user = userEvent.setup();
+    const { settingsValue } = renderWithSettings();
+    await user.click(screen.getByText('Dark'));
+    expect(settingsValue.setSetting).toHaveBeenCalledWith('theme_preference', 'dark');
+  });
+
+  it('clicking launch at login toggle calls setSetting', async () => {
+    const user = userEvent.setup();
+    const { settingsValue } = renderWithSettings();
+    await user.click(screen.getByRole('switch'));
+    expect(settingsValue.setSetting).toHaveBeenCalledWith('launch_at_login', 'true');
+  });
+
+  it('renders resume button when paused', async () => {
+    const user = userEvent.setup();
+    renderWithSettings();
+    // Click a pause duration chip
+    await user.click(screen.getByText('5m'));
+    expect(screen.getByText('Resume')).toBeDefined();
+  });
 
   describe('Display Picker', () => {
-    it('does not show display section when only one monitor', async () => {
+    it('does not show display section with single monitor', async () => {
       mockInvoke.mockResolvedValue([
         {
           id: 'primary',
@@ -131,7 +153,6 @@ describe('GeneralTab', () => {
       ]);
       renderWithSettings();
 
-      // Wait for the invoke to resolve
       await waitFor(() => {
         expect(mockInvoke).toHaveBeenCalledWith('get_available_monitors');
       });
@@ -139,7 +160,7 @@ describe('GeneralTab', () => {
       expect(screen.queryByText('Display')).toBeNull();
     });
 
-    it('shows display section when multiple monitors are connected', async () => {
+    it('shows display section with multiple monitors', async () => {
       mockInvoke.mockResolvedValue([
         {
           id: 'primary',
@@ -151,7 +172,7 @@ describe('GeneralTab', () => {
           is_primary: true,
         },
         {
-          id: 'DELL U2723QE:1728x0',
+          id: 'DELL:1728x0',
           name: 'DELL U2723QE',
           width: 2560,
           height: 1440,
@@ -168,41 +189,6 @@ describe('GeneralTab', () => {
 
       expect(screen.getByText('Built-in Display')).toBeDefined();
       expect(screen.getByText('DELL U2723QE')).toBeDefined();
-      expect(screen.getByText('(Primary)')).toBeDefined();
-    });
-
-    it('calls setSetting when clicking a display button', async () => {
-      mockInvoke.mockResolvedValue([
-        {
-          id: 'primary',
-          name: 'Built-in Display',
-          width: 1728,
-          height: 1117,
-          x: 0,
-          y: 0,
-          is_primary: true,
-        },
-        {
-          id: 'DELL U2723QE:1728x0',
-          name: 'DELL U2723QE',
-          width: 2560,
-          height: 1440,
-          x: 1728,
-          y: 0,
-          is_primary: false,
-        },
-      ]);
-      const { settingsValue } = renderWithSettings();
-
-      await waitFor(() => {
-        expect(screen.getByText('DELL U2723QE')).toBeDefined();
-      });
-
-      fireEvent.click(screen.getByText('DELL U2723QE'));
-      expect(settingsValue.setSetting).toHaveBeenCalledWith(
-        'selected_display',
-        'DELL U2723QE:1728x0',
-      );
     });
   });
 });

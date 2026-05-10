@@ -1,5 +1,10 @@
+import { useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { Slider, Card, SectionHeader, Button } from '@/shared/components';
+import { MiniPreview } from '../components/MiniPreview';
+import { TimelineScrubber } from '../components/TimelineScrubber';
+import type { BorderState, UserSettings } from '@/lib/color-engine/types';
+import { DEFAULT_USER_SETTINGS } from '@/lib/color-engine/types';
 
 const THICKNESS_ENUM = ['thin', 'medium', 'thick'] as const;
 const THICKNESS_LABELS = ['Thin', 'Medium', 'Thick'] as const;
@@ -169,8 +174,12 @@ function PositionSelector({
   );
 }
 
+const THICKNESS_PX: Record<string, number> = { thin: 8, medium: 16, thick: 28 };
+
 export function BorderTab() {
   const { getSetting, setSetting } = useSettings();
+  const [scrubberOpen, setScrubberOpen] = useState(false);
+  const [scrubberState, setScrubberState] = useState<BorderState | null>(null);
 
   const thickness = getSetting('border_thickness') ?? 'medium';
   const position = getSetting('border_position') ?? 'all';
@@ -180,6 +189,31 @@ export function BorderTab() {
   const thicknessIndex = Math.max(0, THICKNESS_ENUM.indexOf(thickness as (typeof THICKNESS_ENUM)[number]));
   const intensityIndex = Math.max(0, INTENSITY_ENUM.indexOf(intensity as (typeof INTENSITY_ENUM)[number]));
 
+  const activeEdges = edgesFromPosition(position);
+  const previewPosition = {
+    top: activeEdges.has('top'),
+    bottom: activeEdges.has('bottom'),
+    left: activeEdges.has('left'),
+    right: activeEdges.has('right'),
+  };
+
+  const defaultPreviewState: BorderState = {
+    color: palette === 'ocean' ? '#3b82f6' : '#22c55e',
+    opacity: 0.25,
+    pulseSpeed: 0,
+    phase: 'free-deep',
+  };
+
+  const previewBorderState = scrubberOpen && scrubberState ? scrubberState : defaultPreviewState;
+
+  const scrubberSettings: UserSettings = {
+    ...DEFAULT_USER_SETTINGS,
+    palette: palette as UserSettings['palette'],
+    intensity: intensity as UserSettings['intensity'],
+    borderThickness: thickness as UserSettings['borderThickness'],
+    borderPosition: position as UserSettings['borderPosition'],
+  };
+
   function resetToDefaults() {
     for (const [key, value] of Object.entries(DEFAULTS)) {
       setSetting(key, value);
@@ -188,8 +222,28 @@ export function BorderTab() {
 
   return (
     <div className="space-y-8">
-      {/* Live preview mount point for Task 7 */}
-      <div id="preview-mount" />
+      {/* Live preview */}
+      <div id="preview-mount" className="flex flex-col items-center gap-3">
+        <MiniPreview
+          borderState={previewBorderState}
+          position={previewPosition}
+          thickness={THICKNESS_PX[thickness] ?? 16}
+        />
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setScrubberOpen(!scrubberOpen);
+            if (scrubberOpen) setScrubberState(null);
+          }}
+        >
+          {scrubberOpen ? 'Hide timeline' : 'Preview timeline'}
+        </Button>
+        {scrubberOpen && (
+          <div className="w-full">
+            <TimelineScrubber settings={scrubberSettings} onBorderStateChange={setScrubberState} />
+          </div>
+        )}
+      </div>
 
       <SectionHeader title="Border Settings" description="Customize how the ambient border appears on your screen." />
 

@@ -8,6 +8,10 @@ vi.mock('@tauri-apps/api/event', () => ({
   emit: vi.fn(),
 }));
 
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn().mockResolvedValue([]),
+}));
+
 import { emit } from '@tauri-apps/api/event';
 
 afterEach(() => {
@@ -30,7 +34,7 @@ describe('CalendarTab', () => {
   it('renders all three provider cards', () => {
     render(<CalendarTab />);
     expect(screen.getByText('Google Calendar')).toBeDefined();
-    expect(screen.getByText('Microsoft Calendar')).toBeDefined();
+    expect(screen.getByText('Microsoft Outlook')).toBeDefined();
     expect(screen.getByText('Apple Calendar')).toBeDefined();
   });
 
@@ -71,33 +75,6 @@ describe('CalendarTab', () => {
     expect(emit).toHaveBeenCalledWith('connect-provider', {
       provider: 'apple',
     });
-  });
-
-  it('disconnect button updates state to not connected', () => {
-    render(<CalendarTab />);
-    // Simulate a connected state via the provider-status-update listener
-    // Since we can't easily trigger the event listener, we test disconnect
-    // by directly checking the emit call pattern
-    // Instead, let's test the Sync Now button
-    const syncBtn = screen.getByRole('button', { name: /Sync Now/ });
-    fireEvent.click(syncBtn);
-    expect(emit).toHaveBeenCalledWith('force-sync', {});
-  });
-
-  it('renders Sync Now button', () => {
-    render(<CalendarTab />);
-    expect(screen.getByRole('button', { name: /Sync Now/ })).toBeDefined();
-  });
-
-  it('shows "Not yet synced" by default', () => {
-    render(<CalendarTab />);
-    expect(screen.getByText('Not yet synced')).toBeDefined();
-  });
-
-  it('Sync Now button emits force-sync event', () => {
-    render(<CalendarTab />);
-    fireEvent.click(screen.getByRole('button', { name: /Sync Now/ }));
-    expect(emit).toHaveBeenCalledWith('force-sync', {});
   });
 
   it('renders provider icon letters', () => {

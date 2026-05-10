@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { emit, listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
+import { Card, Badge, Toggle, SectionHeader, Button } from '../../shared/components';
 
 interface ProviderStatus {
   connected: boolean;
@@ -9,19 +10,26 @@ interface ProviderStatus {
   error?: string;
 }
 
+interface CalendarInfo {
+  id: string;
+  summary: string;
+  color: string | null;
+  selected: boolean;
+  primary: boolean;
+}
+
 type ProviderId = 'google' | 'microsoft' | 'apple';
 
 interface ProviderConfig {
   id: ProviderId;
-  name: string;
   label: string;
   color: string;
 }
 
 const PROVIDERS: ProviderConfig[] = [
-  { id: 'google', name: 'G', label: 'Google Calendar', color: 'bg-red-500' },
-  { id: 'microsoft', name: 'M', label: 'Microsoft Calendar', color: 'bg-blue-600' },
-  { id: 'apple', name: 'A', label: 'Apple Calendar', color: 'bg-gray-700' },
+  { id: 'google', label: 'Google Calendar', color: '#EA4335' },
+  { id: 'microsoft', label: 'Microsoft Outlook', color: '#0078D4' },
+  { id: 'apple', label: 'Apple Calendar', color: '#57534E' },
 ];
 
 function formatRelativeTime(isoString: string): string {
@@ -42,9 +50,30 @@ export default function CalendarTab() {
     apple: { connected: false },
   });
   const [lastGlobalSync, setLastGlobalSync] = useState<string | undefined>();
+  const [calendars, setCalendars] = useState<CalendarInfo[]>([]);
+  const [ignoredIds, setIgnoredIds] = useState<string[]>([]);
+
+  const loadIgnoredIds = useCallback(async () => {
+    try {
+      const val = await invoke<string | null>('get_setting', { key: 'ignored_calendar_ids' });
+      if (val) {
+        setIgnoredIds(JSON.parse(val));
+      }
+    } catch {
+      // Setting may not exist yet
+    }
+  }, []);
+
+  const loadCalendars = useCallback(async () => {
+    try {
+      const list = await invoke<CalendarInfo[]>('get_calendar_list');
+      setCalendars(list);
+    } catch {
+      // Provider may not be connected
+    }
+  }, []);
 
   useEffect(() => {
-    // Fetch current provider statuses on mount
     invoke<{ provider: string; status: ProviderStatus }[]>('get_provider_statuses')
       .then((statuses) => {
         setProviders((prev) => {
@@ -57,6 +86,9 @@ export default function CalendarTab() {
       })
       .catch(() => {});
 
+    loadIgnoredIds();
+    loadCalendars();
+
     const unlistenStatus = listen<{ provider: string; status: ProviderStatus }>(
       'provider-status-update',
       (event) => {
@@ -64,6 +96,10 @@ export default function CalendarTab() {
           ...prev,
           [event.payload.provider]: event.payload.status,
         }));
+        // Reload calendars when a provider connects
+        if (event.payload.status.connected) {
+          loadCalendars();
+        }
       },
     );
     const unlistenSync = listen('calendar-events-update', () => {
@@ -73,7 +109,7 @@ export default function CalendarTab() {
       unlistenStatus.then((fn) => fn());
       unlistenSync.then((fn) => fn());
     };
-  }, []);
+  }, [loadCalendars, loadIgnoredIds]);
 
   function handleConnect(provider: string) {
     emit('connect-provider', { provider });
@@ -82,95 +118,155 @@ export default function CalendarTab() {
   function handleDisconnect(provider: string) {
     emit('disconnect-provider', { provider });
     setProviders((prev) => ({ ...prev, [provider]: { connected: false } }));
+    if (provider === 'google') {
+      setCalendars([]);
+    }
   }
 
   function handleSyncNow() {
     emit('force-sync', {});
   }
 
+  async function handleToggleCalendar(calendarId: string, enabled: boolean) {
+    const newIgnored = enabled
+      ? ignoredIds.filter((id) => id !== calendarId)
+      : [...ignoredIds, calendarId];
+    setIgnoredIds(newIgnored);
+    try {
+      await invoke('set_setting', {
+        key: 'ignored_calendar_ids',
+        value: JSON.stringify(newIgnored),
+      });
+    } catch {
+      // Revert on failure
+      setIgnoredIds(ignoredIds);
+    }
+  }
+
+  const hasConnectedProvider = Object.values(providers).some((s) => s.connected);
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-lg font-semibold mb-2">Calendar Connections</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Connect your calendars to see upcoming events on the border.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <SectionHeader
+        title="Calendar Connections"
+        description="Connect your calendars to see upcoming events on the border."
+      />
 
       {/* Provider Cards */}
-      <section className="space-y-3">
+      <div className="space-y-3">
         {PROVIDERS.map((config) => {
           const status = providers[config.id];
           return (
-            <div key={config.id} className="border border-gray-200 rounded-lg p-4">
+            <Card key={config.id}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-full ${config.color} flex items-center justify-center text-white text-sm font-bold`}
+                    className="w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: config.color }}
                   >
-                    {config.name}
+                    <span className="text-white text-sm font-bold">
+                      {config.label.charAt(0)}
+                    </span>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{config.label}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <div
-                        className={`w-2 h-2 rounded-full ${status?.connected ? 'bg-green-500' : 'bg-gray-300'}`}
-                      />
-                      <p className="text-xs text-gray-500">
-                        {status?.connected
+                    <p
+                      style={{
+                        fontSize: 'var(--text-base)',
+                        color: 'var(--color-text)',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {config.label}
+                    </p>
+                    <Badge
+                      color={status?.connected ? 'var(--color-success)' : 'var(--color-text-muted)'}
+                      text={
+                        status?.connected
                           ? status.accountName
                             ? `Connected as ${status.accountName}`
                             : 'Connected'
-                          : 'Not connected'}
-                      </p>
-                    </div>
+                          : 'Not connected'
+                      }
+                    />
                   </div>
                 </div>
                 <div>
                   {status?.connected ? (
-                    <button
-                      onClick={() => handleDisconnect(config.id)}
-                      className="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 transition-colors"
-                    >
+                    <Button variant="ghost" onClick={() => handleDisconnect(config.id)}>
                       Disconnect
-                    </button>
+                    </Button>
                   ) : (
-                    <button
-                      onClick={() => handleConnect(config.id)}
-                      className="px-3 py-1.5 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 transition-colors"
-                    >
+                    <Button variant="primary" onClick={() => handleConnect(config.id)}>
                       Connect
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
               {status?.connected && status.lastSync && (
-                <p className="text-xs text-gray-400 mt-2 ml-11">
+                <p
+                  className="mt-2 ml-11"
+                  style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}
+                >
                   Last synced: {formatRelativeTime(status.lastSync)}
                 </p>
               )}
-              {status?.error && <p className="text-xs text-red-500 mt-2 ml-11">{status.error}</p>}
-            </div>
+              {status?.error && (
+                <p
+                  className="mt-2 ml-11"
+                  style={{ fontSize: 'var(--text-xs)', color: 'var(--color-danger)' }}
+                >
+                  {status.error}
+                </p>
+              )}
+            </Card>
           );
         })}
-      </section>
+      </div>
+
+      {/* Calendar Toggles */}
+      {calendars.length > 0 && (
+        <div className="space-y-3">
+          <SectionHeader
+            title="Calendars"
+            description="Choose which calendars to show on the border."
+          />
+          <Card>
+            <div className="space-y-3">
+              {calendars.map((cal) => (
+                <div key={cal.id} className="flex items-center gap-3">
+                  {cal.color && (
+                    <span
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: cal.color }}
+                    />
+                  )}
+                  <Toggle
+                    label={cal.summary + (cal.primary ? ' (Primary)' : '')}
+                    checked={!ignoredIds.includes(cal.id)}
+                    onChange={(enabled) => handleToggleCalendar(cal.id, enabled)}
+                  />
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Sync Status */}
-      <section>
+      {hasConnectedProvider && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
             {lastGlobalSync
               ? `Last synced: ${formatRelativeTime(lastGlobalSync)}`
               : 'Not yet synced'}
           </p>
-          <button
-            onClick={handleSyncNow}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
-          >
+          <Button variant="secondary" onClick={handleSyncNow}>
             Sync Now
-          </button>
+          </Button>
         </div>
-      </section>
+      )}
     </div>
   );
 }
+
+export { CalendarTab };
