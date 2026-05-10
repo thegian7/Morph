@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use std::any::Any;
 
 use super::error::CalendarError;
 use super::types::{CalendarEvent, ProviderType};
@@ -31,4 +32,7 @@ pub trait CalendarProvider: Send + Sync {
 
     /// Human-readable account name (e.g., email address or display name).
     fn account_name(&self) -> &str;
+
+    /// Downcast support for provider-specific operations.
+    fn as_any(&self) -> &dyn Any;
 }

@@ -1,7 +1,9 @@
 use chrono::{DateTime, Utc};
+use std::any::Any;
 use std::collections::HashSet;
 
 use super::error::CalendarError;
+use super::google::GoogleCalendarProvider;
 use super::provider::CalendarProvider;
 use super::types::{CalendarEvent, ProviderType};
 
@@ -61,6 +63,14 @@ impl CalendarAggregator {
             .iter()
             .map(|p| (p.provider_type(), p.account_name().to_string()))
             .collect()
+    }
+
+    /// Return a reference to the Google provider, if one is registered.
+    pub fn google_provider(&self) -> Option<&GoogleCalendarProvider> {
+        self.providers
+            .iter()
+            .find(|p| p.provider_type() == ProviderType::Google)
+            .and_then(|p| p.as_any().downcast_ref::<GoogleCalendarProvider>())
     }
 
     /// Fetch upcoming events from all providers.
@@ -162,6 +172,10 @@ mod tests {
         fn account_name(&self) -> &str {
             &self.account
         }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
     }
 
     struct FailingProvider {
@@ -198,6 +212,10 @@ mod tests {
 
         fn account_name(&self) -> &str {
             "failing@test.com"
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
         }
     }
 

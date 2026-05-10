@@ -23,7 +23,9 @@ const GOOGLE_CLIENT_SECRET: &str = env!("GOOGLE_CLIENT_SECRET");
 const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v3/userinfo";
-const CALENDAR_EVENTS_URL: &str = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+const CALENDAR_EVENTS_BASE: &str = "https://www.googleapis.com/calendar/v3/calendars";
+const CALENDAR_LIST_URL: &str =
+    "https://www.googleapis.com/calendar/v3/users/me/calendarList";
 
 const SCOPE: &str = "https://www.googleapis.com/auth/calendar.events.readonly \
                      https://www.googleapis.com/auth/userinfo.email";
@@ -56,6 +58,31 @@ struct UserInfoResponse {
 #[derive(Debug, serde::Deserialize)]
 struct EventsListResponse {
     items: Option<Vec<GoogleEvent>>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct CalendarListResponse {
+    items: Option<Vec<CalendarListEntry>>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct CalendarListEntry {
+    id: Option<String>,
+    summary: Option<String>,
+    #[serde(rename = "backgroundColor")]
+    background_color: Option<String>,
+    selected: Option<bool>,
+    primary: Option<bool>,
+}
+
+/// Info about a single calendar exposed to the frontend.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CalendarInfo {
+    pub id: String,
+    pub summary: String,
+    pub color: Option<String>,
+    pub selected: bool,
+    pub primary: bool,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -335,6 +362,118 @@ impl GoogleCalendarProvider {
             .map_err(|e| CalendarError::DeserializationError(format!("token response: {e}")))
     }
 
+    /// Fetch the list of calendars visible to the authenticated user.
+    pub async fn fetch_calendar_list(&self) -> Result<Vec<CalendarInfo>, CalendarError> {
+        let access_token = self
+            .access_token
+            .as_deref()
+            .ok_or(CalendarError::NotAuthenticated)?;
+
+        let resp = self
+            .http_client
+            .get(calendar_list_url())
+            .bearer_auth(access_token)
+            .send()
+            .await
+            .map_err(|e| CalendarError::NetworkError(format!("calendarList request: {e}")))?;
+
+        if !resp.status().is_success() {
+            let body = resp
+                .text()
+                .await
+                .unwrap_or_else(|_| "unknown error".to_string());
+            return Err(CalendarError::FetchFailed(format!(
+                "calendarList API error: {body}"
+            )));
+        }
+
+        let data: CalendarListResponse = resp.json().await.map_err(|e| {
+            CalendarError::DeserializationError(format!("calendarList response: {e}"))
+        })?;
+
+        let calendars = data
+            .items
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|entry| {
+                let id = entry.id?;
+                Some(CalendarInfo {
+                    id,
+                    summary: entry.summary.unwrap_or_else(|| "(Untitled)".to_string()),
+                    color: entry.background_color,
+                    selected: entry.selected.unwrap_or(true),
+                    primary: entry.primary.unwrap_or(false),
+                })
+            })
+            .collect();
+
+        Ok(calendars)
+    }
+
+    /// Fetch events from multiple calendars, merging and deduplicating by event ID.
+    pub async fn fetch_events_multi(
+        &self,
+        calendar_ids: &[String],
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<CalendarEvent>, CalendarError> {
+        let access_token = self
+            .access_token
+            .as_deref()
+            .ok_or(CalendarError::NotAuthenticated)?;
+
+        let mut all_events = Vec::new();
+        let mut seen_ids = std::collections::HashSet::new();
+
+        for cal_id in calendar_ids {
+            let url = events_url(cal_id);
+            let resp = self
+                .http_client
+                .get(&url)
+                .bearer_auth(access_token)
+                .query(&[
+                    ("timeMin", from.to_rfc3339()),
+                    ("timeMax", to.to_rfc3339()),
+                    ("singleEvents", "true".to_string()),
+                    ("orderBy", "startTime".to_string()),
+                ])
+                .send()
+                .await
+                .map_err(|e| CalendarError::NetworkError(format!("calendar API request: {e}")))?;
+
+            if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
+                return Err(CalendarError::TokenRefreshFailed(
+                    "access token expired (401)".to_string(),
+                ));
+            }
+
+            if !resp.status().is_success() {
+                let body = resp
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "unknown error".to_string());
+                return Err(CalendarError::FetchFailed(format!(
+                    "calendar API error: {body}"
+                )));
+            }
+
+            let data: EventsListResponse = resp.json().await.map_err(|e| {
+                CalendarError::DeserializationError(format!("calendar events response: {e}"))
+            })?;
+
+            let provider_id = &self.provider_id_cache;
+            for event in data.items.unwrap_or_default() {
+                if let Some(ce) = map_google_event(event, provider_id, cal_id) {
+                    if seen_ids.insert(ce.id.clone()) {
+                        all_events.push(ce);
+                    }
+                }
+            }
+        }
+
+        Ok(all_events)
+    }
+
     /// Fetch the authenticated user's email address.
     async fn fetch_user_email(&self) -> Result<String, CalendarError> {
         let access_token = self
@@ -369,6 +508,16 @@ impl GoogleCalendarProvider {
     }
 }
 
+/// Build the URL for the Google Calendar events endpoint for a given calendar ID.
+pub fn events_url(calendar_id: &str) -> String {
+    format!("{CALENDAR_EVENTS_BASE}/{calendar_id}/events")
+}
+
+/// Return the Google Calendar list API URL.
+pub fn calendar_list_url() -> String {
+    CALENDAR_LIST_URL.to_string()
+}
+
 /// Parse a Google Calendar event datetime (either `dateTime` or `date` field) into a UTC
 /// `DateTime`. All-day events use `NaiveDate` and are anchored at midnight UTC.
 fn parse_event_datetime(edt: &Option<EventDateTime>) -> Option<DateTime<Utc>> {
@@ -400,7 +549,11 @@ fn is_all_day(edt: &Option<EventDateTime>) -> bool {
 }
 
 /// Map a Google Calendar API event to our CalendarEvent type.
-fn map_google_event(event: GoogleEvent, provider_id: &str) -> Option<CalendarEvent> {
+fn map_google_event(
+    event: GoogleEvent,
+    provider_id: &str,
+    calendar_id: &str,
+) -> Option<CalendarEvent> {
     // Skip cancelled events
     if event.status.as_deref() == Some("cancelled") {
         return None;
@@ -415,7 +568,7 @@ fn map_google_event(event: GoogleEvent, provider_id: &str) -> Option<CalendarEve
         start_time: start,
         end_time: end,
         ignored: false,
-        calendar_id: Some("primary".to_string()),
+        calendar_id: Some(calendar_id.to_string()),
         provider_id: provider_id.to_string(),
         is_all_day: is_all_day(&event.start),
     })
@@ -489,9 +642,10 @@ impl CalendarProvider for GoogleCalendarProvider {
             .as_deref()
             .ok_or(CalendarError::NotAuthenticated)?;
 
+        let url = events_url("primary");
         let resp = self
             .http_client
-            .get(CALENDAR_EVENTS_URL)
+            .get(&url)
             .bearer_auth(access_token)
             .query(&[
                 ("timeMin", from.to_rfc3339()),
@@ -528,7 +682,7 @@ impl CalendarProvider for GoogleCalendarProvider {
             .items
             .unwrap_or_default()
             .into_iter()
-            .filter_map(|e| map_google_event(e, provider_id))
+            .filter_map(|e| map_google_event(e, provider_id, "primary"))
             .collect();
 
         Ok(events)
@@ -594,6 +748,10 @@ impl CalendarProvider for GoogleCalendarProvider {
 
     fn account_name(&self) -> &str {
         self.account_email.as_deref().unwrap_or("unknown")
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -699,7 +857,7 @@ mod tests {
             "2026-02-20T10:30:00Z",
         );
 
-        let ce = map_google_event(ge, "google-test@gmail.com").unwrap();
+        let ce = map_google_event(ge, "google-test@gmail.com", "primary").unwrap();
 
         assert_eq!(ce.id, "evt-1");
         assert_eq!(ce.title, "Stand-up");
@@ -721,7 +879,7 @@ mod tests {
     fn maps_all_day_event() {
         let ge = make_all_day_google_event("evt-2", "Holiday", "2026-02-20", "2026-02-21");
 
-        let ce = map_google_event(ge, "google-test@gmail.com").unwrap();
+        let ce = map_google_event(ge, "google-test@gmail.com", "primary").unwrap();
 
         assert_eq!(ce.title, "Holiday");
         assert!(ce.is_all_day);
@@ -751,7 +909,7 @@ mod tests {
             status: Some("cancelled".to_string()),
         };
 
-        assert!(map_google_event(ge, "google-test@gmail.com").is_none());
+        assert!(map_google_event(ge, "google-test@gmail.com", "primary").is_none());
     }
 
     #[test]
@@ -770,7 +928,7 @@ mod tests {
             status: Some("confirmed".to_string()),
         };
 
-        let ce = map_google_event(ge, "google-test@gmail.com").unwrap();
+        let ce = map_google_event(ge, "google-test@gmail.com", "primary").unwrap();
         assert_eq!(ce.title, "(No title)");
     }
 
@@ -787,7 +945,7 @@ mod tests {
             status: Some("confirmed".to_string()),
         };
 
-        assert!(map_google_event(ge, "google-test@gmail.com").is_none());
+        assert!(map_google_event(ge, "google-test@gmail.com", "primary").is_none());
     }
 
     #[test]
@@ -854,7 +1012,7 @@ mod tests {
 
         let events: Vec<CalendarEvent> = items
             .into_iter()
-            .filter_map(|e| map_google_event(e, "google-user@test.com"))
+            .filter_map(|e| map_google_event(e, "google-user@test.com", "primary"))
             .collect();
 
         assert_eq!(events.len(), 2);
@@ -897,5 +1055,67 @@ mod tests {
         // Expired token = not valid
         provider.token_expiry = Some(Utc::now() - Duration::hours(1));
         assert!(!provider.token_is_valid());
+    }
+
+    // --- Multi-calendar URL tests ---
+
+    #[test]
+    fn test_calendar_list_url_construction() {
+        let url = super::calendar_list_url();
+        assert!(url.contains("calendarList"));
+    }
+
+    #[test]
+    fn test_events_url_with_calendar_id() {
+        let url = super::events_url("my_calendar_id");
+        assert!(url.contains("calendars/my_calendar_id/events"));
+        assert!(!url.contains("primary"));
+    }
+
+    #[test]
+    fn test_events_url_with_primary() {
+        let url = super::events_url("primary");
+        assert!(url.contains("calendars/primary/events"));
+    }
+
+    #[test]
+    fn deserializes_calendar_list_response() {
+        let json = r#"{
+            "items": [
+                {
+                    "id": "user@gmail.com",
+                    "summary": "My Calendar",
+                    "backgroundColor": "#4285f4",
+                    "selected": true,
+                    "primary": true
+                },
+                {
+                    "id": "holidays@group.v.calendar.google.com",
+                    "summary": "Holidays",
+                    "backgroundColor": "#7986cb",
+                    "selected": true
+                }
+            ]
+        }"#;
+
+        let resp: CalendarListResponse = serde_json::from_str(json).unwrap();
+        let items = resp.items.unwrap();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].id.as_deref(), Some("user@gmail.com"));
+        assert_eq!(items[0].summary.as_deref(), Some("My Calendar"));
+        assert_eq!(items[0].primary, Some(true));
+        assert_eq!(items[1].primary, None);
+    }
+
+    #[test]
+    fn map_google_event_uses_provided_calendar_id() {
+        let ge = make_google_event(
+            "evt-cal",
+            "Meeting",
+            "2026-02-20T10:00:00Z",
+            "2026-02-20T10:30:00Z",
+        );
+        let ce = map_google_event(ge, "google-test@gmail.com", "work-calendar").unwrap();
+        assert_eq!(ce.calendar_id, Some("work-calendar".to_string()));
     }
 }

@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS: &[(&str, &str)] = &[
     ("launch_at_login", "false"),
     ("selected_display", "primary"),
     ("onboarding_complete", "false"),
+    ("ignored_calendar_ids", "[]"),
 ];
 
 /// Helper to get the SQLite pool from the plugin's managed state.

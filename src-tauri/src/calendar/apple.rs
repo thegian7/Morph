@@ -167,6 +167,10 @@ impl CalendarProvider for AppleCalendarProvider {
     fn account_name(&self) -> &str {
         &self.account_name
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 // ---------------------------------------------------------------------------

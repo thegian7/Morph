@@ -224,6 +224,24 @@ async fn get_provider_statuses(
     Ok(statuses)
 }
 
+/// Return the list of calendars for the connected Google provider.
+#[tauri::command]
+async fn get_calendar_list(
+    app: tauri::AppHandle,
+) -> Result<Vec<calendar::google::CalendarInfo>, String> {
+    let aggregator = app.state::<Arc<tokio::sync::Mutex<CalendarAggregator>>>();
+    let agg = aggregator.lock().await;
+
+    // Try to get the Google provider and fetch its calendar list
+    match agg.google_provider() {
+        Some(provider) => provider
+            .fetch_calendar_list()
+            .await
+            .map_err(|e| e.to_string()),
+        None => Ok(vec![]),
+    }
+}
+
 /// Trigger an immediate calendar sync by fetching events from the aggregator
 /// and emitting the result.
 #[tauri::command]
@@ -447,6 +465,7 @@ pub fn run() {
             connect_provider,
             disconnect_provider,
             get_provider_statuses,
+            get_calendar_list,
             force_sync,
             pause_border,
             get_available_monitors,

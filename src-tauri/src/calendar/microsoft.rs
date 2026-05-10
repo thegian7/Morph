@@ -502,6 +502,10 @@ impl CalendarProvider for MicrosoftCalendarProvider {
             None => "Microsoft Account",
         }
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Convert a Microsoft Graph event to our CalendarEvent type.
