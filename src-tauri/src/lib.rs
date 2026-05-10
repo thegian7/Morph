@@ -588,7 +588,7 @@ pub fn run() {
                                     tauri::WebviewUrl::App("src/settings/index.html".into()),
                                 )
                                 .title("Morph Settings")
-                                .inner_size(600.0, 500.0)
+                                .inner_size(680.0, 560.0)
                                 .decorations(true)
                                 .resizable(true)
                                 .build()
