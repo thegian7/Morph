@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use std::any::Any;
 use std::collections::HashSet;
 
 use super::error::CalendarError;

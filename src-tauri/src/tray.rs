@@ -25,6 +25,7 @@ pub fn phase_to_label(phase: &str) -> &str {
 }
 
 /// Map a BorderState phase string to the corresponding tray icon filename.
+#[cfg(test)]
 fn phase_to_icon_name(phase: &str) -> &str {
     match phase {
         "no-events" => "tray-none.png",

@@ -783,8 +783,7 @@ fn setup_event_listeners(app: &tauri::App) {
     // pause-timer: pause the active timer
     let handle = app.handle().clone();
     app.listen("pause-timer", move |_event| {
-        let timer_state = handle.state::<Mutex<TimerState>>();
-        if let Ok(mut state) = timer_state.lock() {
+        if let Ok(mut state) = handle.state::<Mutex<TimerState>>().lock() {
             if state.status == "running" {
                 state.status = "paused".to_string();
                 state.paused_at = Some(chrono::Utc::now().to_rfc3339());
@@ -796,8 +795,7 @@ fn setup_event_listeners(app: &tauri::App) {
     // resume-timer: resume a paused timer
     let handle = app.handle().clone();
     app.listen("resume-timer", move |_event| {
-        let timer_state = handle.state::<Mutex<TimerState>>();
-        if let Ok(mut state) = timer_state.lock() {
+        if let Ok(mut state) = handle.state::<Mutex<TimerState>>().lock() {
             if state.status == "paused" {
                 if let Some(paused_at_str) = &state.paused_at {
                     if let Ok(paused_at) = chrono::DateTime::parse_from_rfc3339(paused_at_str) {

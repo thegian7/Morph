@@ -1080,7 +1080,7 @@ mod tests {
 
     #[test]
     fn deserializes_calendar_list_response() {
-        let json = r#"{
+        let json = r##"{
             "items": [
                 {
                     "id": "user@gmail.com",
@@ -1096,7 +1096,7 @@ mod tests {
                     "selected": true
                 }
             ]
-        }"#;
+        }"##;
 
         let resp: CalendarListResponse = serde_json::from_str(json).unwrap();
         let items = resp.items.unwrap();
