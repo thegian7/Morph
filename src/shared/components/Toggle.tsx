@@ -9,14 +9,19 @@ interface ToggleProps {
 
 export function Toggle({ label, checked, onChange, disabled }: ToggleProps) {
   return (
-    <label className="flex items-center justify-between cursor-pointer">
-      <span style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>{label}</span>
+    <label className="flex items-center justify-between gap-3 cursor-pointer">
+      <span
+        className="truncate"
+        style={{ fontSize: 'var(--text-base)', color: 'var(--color-text)' }}
+      >
+        {label}
+      </span>
       <button
         role="switch"
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className="relative w-10 h-5 rounded-full transition-colors"
+        className="relative w-10 h-5 rounded-full shrink-0 transition-colors"
         style={{
           backgroundColor: checked ? 'var(--color-primary)' : 'var(--color-border)',
           transition: 'var(--transition-fast)',

@@ -95,18 +95,7 @@ export default function App() {
               <li key={tab.id}>
                 <button
                   onClick={() => setActiveTab(tab.id)}
-                  className="w-full text-left px-3 py-2 rounded-lg"
-                  style={{
-                    fontSize: 'var(--text-sm)',
-                    fontWeight: activeTab === tab.id ? 500 : 400,
-                    backgroundColor:
-                      activeTab === tab.id
-                        ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)'
-                        : 'transparent',
-                    color:
-                      activeTab === tab.id ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                    transition: 'var(--transition-fast)',
-                  }}
+                  className={`nav-item ${activeTab === tab.id ? 'nav-item-active' : ''}`}
                 >
                   {tab.label}
                 </button>
@@ -117,13 +106,9 @@ export default function App() {
           <div className="pt-3 mt-auto" style={{ borderTop: '1px solid var(--color-border)' }}>
             <button
               onClick={() => open(KOFI_URL)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg w-full"
+              className="nav-item flex items-center gap-2"
               title="Support Morph on Ko-fi"
-              style={{
-                fontSize: 'var(--text-xs)',
-                color: 'var(--color-text-muted)',
-                transition: 'var(--transition-fast)',
-              }}
+              style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}
             >
               <svg
                 width="14"
