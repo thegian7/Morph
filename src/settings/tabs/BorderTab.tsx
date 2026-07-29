@@ -79,6 +79,7 @@ function PositionSelector({
   onChange: (pos: string) => void;
 }) {
   const activeEdges = edgesFromPosition(position);
+  const [hovered, setHovered] = useState<Edge | null>(null);
 
   function toggleEdge(edge: Edge) {
     const next = new Set(activeEdges);
@@ -92,9 +93,40 @@ function PositionSelector({
     onChange(positionFromEdges(next));
   }
 
-  const activeColor = 'var(--color-primary, #3b82f6)';
-  const inactiveColor = 'var(--color-border, #d1d5db)';
+  function edgeFill(edge: Edge): string {
+    if (activeEdges.has(edge)) return 'var(--color-primary)';
+    if (hovered === edge)
+      return 'color-mix(in srgb, var(--color-primary) 40%, var(--color-border))';
+    return 'var(--color-border)';
+  }
+
   const edgeThickness = 6;
+  const hitThickness = 18;
+
+  // [edge, visible-rect, invisible hit-area rect]
+  type RectGeom = { x: number; y: number; width: number; height: number };
+  const edges: { edge: Edge; rect: RectGeom; hit: RectGeom }[] = [
+    {
+      edge: 'top',
+      rect: { x: 10, y: 10, width: 180, height: edgeThickness },
+      hit: { x: 10, y: 4, width: 180, height: hitThickness },
+    },
+    {
+      edge: 'bottom',
+      rect: { x: 10, y: 130 - edgeThickness, width: 180, height: edgeThickness },
+      hit: { x: 10, y: 130 - hitThickness + 6, width: 180, height: hitThickness },
+    },
+    {
+      edge: 'left',
+      rect: { x: 10, y: 10, width: edgeThickness, height: 120 },
+      hit: { x: 4, y: 10, width: hitThickness, height: 120 },
+    },
+    {
+      edge: 'right',
+      rect: { x: 190 - edgeThickness, y: 10, width: edgeThickness, height: 120 },
+      hit: { x: 190 - hitThickness + 6, y: 10, width: hitThickness, height: 120 },
+    },
+  ];
 
   return (
     <div data-testid="position-selector">
@@ -102,7 +134,6 @@ function PositionSelector({
         width="200"
         height="140"
         viewBox="0 0 200 140"
-        style={{ cursor: 'pointer' }}
         role="img"
         aria-label="Border position selector"
       >
@@ -113,63 +144,40 @@ function PositionSelector({
           width="180"
           height="120"
           fill="none"
-          stroke="var(--color-border, #e5e7eb)"
+          stroke="var(--color-border)"
           strokeWidth="1"
           rx="4"
         />
-        {/* Top edge */}
-        <rect
-          x="10"
-          y="10"
-          width="180"
-          height={edgeThickness}
-          fill={activeEdges.has('top') ? activeColor : inactiveColor}
-          rx="2"
-          onClick={() => toggleEdge('top')}
-          style={{ cursor: 'pointer' }}
-          role="button"
-          aria-label="Toggle top edge"
-        />
-        {/* Bottom edge */}
-        <rect
-          x="10"
-          y={130 - edgeThickness}
-          width="180"
-          height={edgeThickness}
-          fill={activeEdges.has('bottom') ? activeColor : inactiveColor}
-          rx="2"
-          onClick={() => toggleEdge('bottom')}
-          style={{ cursor: 'pointer' }}
-          role="button"
-          aria-label="Toggle bottom edge"
-        />
-        {/* Left edge */}
-        <rect
-          x="10"
-          y="10"
-          width={edgeThickness}
-          height="120"
-          fill={activeEdges.has('left') ? activeColor : inactiveColor}
-          rx="2"
-          onClick={() => toggleEdge('left')}
-          style={{ cursor: 'pointer' }}
-          role="button"
-          aria-label="Toggle left edge"
-        />
-        {/* Right edge */}
-        <rect
-          x={190 - edgeThickness}
-          y="10"
-          width={edgeThickness}
-          height="120"
-          fill={activeEdges.has('right') ? activeColor : inactiveColor}
-          rx="2"
-          onClick={() => toggleEdge('right')}
-          style={{ cursor: 'pointer' }}
-          role="button"
-          aria-label="Toggle right edge"
-        />
+        {edges.map(({ edge, rect, hit }) => (
+          <g
+            key={edge}
+            onClick={() => toggleEdge(edge)}
+            onMouseEnter={() => setHovered(edge)}
+            onMouseLeave={() => setHovered(null)}
+            style={{ cursor: 'pointer' }}
+            role="button"
+            aria-label={`Toggle ${edge} edge`}
+            aria-pressed={activeEdges.has(edge)}
+          >
+            <rect {...hit} fill="transparent" />
+            <rect
+              {...rect}
+              rx="2"
+              fill={edgeFill(edge)}
+              style={{ transition: 'fill 150ms ease' }}
+            />
+          </g>
+        ))}
       </svg>
+      <p
+        style={{
+          fontSize: 'var(--text-xs)',
+          color: 'var(--color-text-muted)',
+          marginTop: 'var(--space-1)',
+        }}
+      >
+        Click an edge to toggle it on or off.
+      </p>
     </div>
   );
 }
@@ -269,8 +277,8 @@ export function BorderTab() {
         <div
           className="flex justify-between mt-1"
           style={{
-            fontSize: 'var(--text-xs, 0.75rem)',
-            color: 'var(--color-text-secondary, #6b7280)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--color-text-secondary)',
           }}
         >
           {THICKNESS_LABELS.map((label) => (
@@ -310,17 +318,17 @@ export function BorderTab() {
               </div>
               <span
                 style={{
-                  fontSize: 'var(--text-sm, 0.875rem)',
+                  fontSize: 'var(--text-sm)',
                   fontWeight: 600,
-                  color: 'var(--color-text, #111827)',
+                  color: 'var(--color-text)',
                 }}
               >
                 {opt.label}
               </span>
               <p
                 style={{
-                  fontSize: 'var(--text-xs, 0.75rem)',
-                  color: 'var(--color-text-secondary, #6b7280)',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--color-text-secondary)',
                   marginTop: '2px',
                 }}
               >
@@ -344,8 +352,8 @@ export function BorderTab() {
         <div
           className="flex justify-between mt-1"
           style={{
-            fontSize: 'var(--text-xs, 0.75rem)',
-            color: 'var(--color-text-secondary, #6b7280)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--color-text-secondary)',
           }}
         >
           {INTENSITY_LABELS.map((label) => (

@@ -121,6 +121,14 @@ export default function TimerTab() {
     setShowCustomForm(false);
   }, [customName, customMinutes, customPresets, setSetting]);
 
+  const handleRemoveCustomPreset = useCallback(
+    (id: string) => {
+      const updated = customPresets.filter((p) => p.id !== id);
+      setSetting('custom_timer_presets', JSON.stringify(updated));
+    },
+    [customPresets, setSetting],
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       <SectionHeader
@@ -202,32 +210,53 @@ export default function TimerTab() {
           Quick Start
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-          {allPresets.map((preset) => (
-            <Card
-              key={preset.id}
-              onClick={isActive ? undefined : () => handleStart(preset)}
-              className={isActive ? 'opacity-50' : ''}
-            >
-              <p
-                style={{
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 500,
-                  color: isActive ? 'var(--color-text-muted)' : 'var(--color-text)',
-                }}
+          {allPresets.map((preset) => {
+            const isCustom = customPresets.some((p) => p.id === preset.id);
+            return (
+              <Card
+                key={preset.id}
+                onClick={isActive ? undefined : () => handleStart(preset)}
+                className={isActive ? 'opacity-50' : ''}
               >
-                {preset.name}
-              </p>
-              <p
-                style={{
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--color-text-muted)',
-                  marginTop: 'var(--space-1)',
-                }}
-              >
-                {formatDuration(preset.durationSeconds)}
-              </p>
-            </Card>
-          ))}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p
+                      style={{
+                        fontSize: 'var(--text-sm)',
+                        fontWeight: 500,
+                        color: isActive ? 'var(--color-text-muted)' : 'var(--color-text)',
+                      }}
+                    >
+                      {preset.name}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--color-text-muted)',
+                        marginTop: 'var(--space-1)',
+                      }}
+                    >
+                      {formatDuration(preset.durationSeconds)}
+                    </p>
+                  </div>
+                  {isCustom && (
+                    <button
+                      className="icon-btn"
+                      title={`Delete ${preset.name} preset`}
+                      aria-label={`Delete ${preset.name} preset`}
+                      style={{ padding: '2px 6px', fontSize: 'var(--text-sm)', lineHeight: 1 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveCustomPreset(preset.id);
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
 
           {/* Add custom preset card */}
           {!showCustomForm ? (
@@ -262,14 +291,7 @@ export default function TimerTab() {
                   placeholder="Name"
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
-                  style={{
-                    fontSize: 'var(--text-sm)',
-                    padding: 'var(--space-1) var(--space-2)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 6,
-                    backgroundColor: 'var(--color-surface-base)',
-                    color: 'var(--color-text)',
-                  }}
+                  className="text-input"
                 />
                 <input
                   type="number"
@@ -277,14 +299,7 @@ export default function TimerTab() {
                   value={customMinutes}
                   onChange={(e) => setCustomMinutes(e.target.value)}
                   min={1}
-                  style={{
-                    fontSize: 'var(--text-sm)',
-                    padding: 'var(--space-1) var(--space-2)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 6,
-                    backgroundColor: 'var(--color-surface-base)',
-                    color: 'var(--color-text)',
-                  }}
+                  className="text-input"
                 />
                 <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                   <Button variant="primary" onClick={handleAddCustomPreset}>

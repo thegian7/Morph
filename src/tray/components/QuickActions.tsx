@@ -21,12 +21,12 @@ export function QuickActions() {
   const [syncing, setSyncing] = useState(false);
 
   const handlePause = (minutes: number) => {
-    emit('pause-border', { duration_minutes: minutes });
+    emit('pause-border', { minutes });
     setShowPauseFlyout(false);
   };
 
-  const handleTimer = (label: string, minutes: number) => {
-    emit('start-timer', { name: label, duration_seconds: minutes * 60 });
+  const handleTimer = (minutes: number) => {
+    emit('start-timer', minutes * 60);
     setShowTimerFlyout(false);
   };
 
@@ -96,7 +96,7 @@ export function QuickActions() {
                   key={p.label}
                   label={p.label}
                   selected={false}
-                  onSelect={() => handleTimer(p.label, p.minutes)}
+                  onSelect={() => handleTimer(p.minutes)}
                 />
               ))}
             </div>

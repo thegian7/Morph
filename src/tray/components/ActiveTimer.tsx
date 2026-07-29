@@ -1,22 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { listen, emit } from '@tauri-apps/api/event';
 import { ProgressRing, IconButton } from '../../shared/components';
-
-interface TimerState {
-  status: string;
-  duration_seconds: number;
-  remaining_seconds: number;
-  preset_name?: string;
-}
+import { getRemainingSeconds } from '@/lib/timer/index';
+import type { TimerState } from '@/lib/timer/types';
 
 function formatCountdown(seconds: number): string {
   const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 export function ActiveTimer() {
   const [timer, setTimer] = useState<TimerState | null>(null);
+  const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
     const unlisten = listen<TimerState>('timer-state-update', (event) => {
@@ -32,10 +28,21 @@ export function ActiveTimer() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!timer) return;
+    function tick() {
+      setRemaining(getRemainingSeconds(timer!, new Date()));
+    }
+    tick();
+    if (timer.status !== 'running') return;
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [timer]);
+
   if (!timer) return null;
 
   const progress =
-    timer.duration_seconds > 0 ? 1 - timer.remaining_seconds / timer.duration_seconds : 0;
+    timer.durationSeconds > 0 ? Math.max(0, Math.min(1, 1 - remaining / timer.durationSeconds)) : 0;
 
   const isPaused = timer.status === 'paused';
 
@@ -46,11 +53,9 @@ export function ActiveTimer() {
     >
       <ProgressRing progress={progress} size={48} strokeWidth={3} />
       <div className="flex-1">
-        {timer.preset_name && (
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-            {timer.preset_name}
-          </div>
-        )}
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+          {isPaused ? 'Paused' : 'Timer'}
+        </div>
         <div
           style={{
             fontSize: 'var(--text-lg)',
@@ -59,7 +64,7 @@ export function ActiveTimer() {
             fontVariantNumeric: 'tabular-nums',
           }}
         >
-          {formatCountdown(timer.remaining_seconds)}
+          {formatCountdown(remaining)}
         </div>
       </div>
       <div className="flex gap-1">
