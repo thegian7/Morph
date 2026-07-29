@@ -10,6 +10,7 @@ interface SliderProps {
 }
 
 export function Slider({ min, max, step = 1, value, onChange, label }: SliderProps) {
+  const fill = max > min ? ((value - min) / (max - min)) * 100 : 0;
   return (
     <div className="flex flex-col gap-1">
       {label && (
@@ -24,7 +25,8 @@ export function Slider({ min, max, step = 1, value, onChange, label }: SliderPro
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-[var(--color-primary)]"
+        className="slider"
+        style={{ '--slider-fill': `${fill}%` } as React.CSSProperties}
       />
     </div>
   );

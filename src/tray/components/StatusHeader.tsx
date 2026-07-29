@@ -51,9 +51,11 @@ export function StatusHeader() {
         <span style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--color-text)' }}>
           {label}
         </span>
-        <Badge color={borderState.color || 'var(--color-text-muted)'} text={borderState.phase} />
+        {borderState.phase !== 'none' && (
+          <Badge color={borderState.color || 'var(--color-text-muted)'} text={label} />
+        )}
       </div>
-      {borderState.status_text && (
+      {borderState.status_text && borderState.status_text.toLowerCase() !== label.toLowerCase() && (
         <p
           style={{
             fontSize: 'var(--text-sm)',

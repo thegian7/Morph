@@ -41,6 +41,7 @@ export function QuickActions() {
       <div className="flex items-center gap-2">
         <div className="relative">
           <IconButton
+            className="quick-action"
             title="Pause border"
             onClick={() => {
               setShowPauseFlyout(!showPauseFlyout);
@@ -51,10 +52,11 @@ export function QuickActions() {
           </IconButton>
           {showPauseFlyout && (
             <div
-              className="absolute bottom-full left-0 mb-1 flex gap-1 p-2 rounded-lg"
+              className="absolute bottom-full left-0 mb-1 flex gap-1 p-2 rounded-lg z-10"
               style={{
                 backgroundColor: 'var(--color-surface-raised)',
                 border: '1px solid var(--color-border)',
+                boxShadow: '0 4px 12px rgb(0 0 0 / 0.15)',
               }}
             >
               {PAUSE_DURATIONS.map((d) => (
@@ -71,6 +73,7 @@ export function QuickActions() {
 
         <div className="relative">
           <IconButton
+            className="quick-action"
             title="Start timer"
             onClick={() => {
               setShowTimerFlyout(!showTimerFlyout);
@@ -81,10 +84,11 @@ export function QuickActions() {
           </IconButton>
           {showTimerFlyout && (
             <div
-              className="absolute bottom-full left-0 mb-1 flex gap-1 p-2 rounded-lg"
+              className="absolute bottom-full left-0 mb-1 flex gap-1 p-2 rounded-lg z-10"
               style={{
                 backgroundColor: 'var(--color-surface-raised)',
                 border: '1px solid var(--color-border)',
+                boxShadow: '0 4px 12px rgb(0 0 0 / 0.15)',
               }}
             >
               {TIMER_PRESETS.map((p) => (
@@ -99,7 +103,7 @@ export function QuickActions() {
           )}
         </div>
 
-        <IconButton title="Sync calendars" onClick={handleSync}>
+        <IconButton className="quick-action" title="Sync calendars" onClick={handleSync}>
           <span style={{ fontSize: 'var(--text-sm)', opacity: syncing ? 0.5 : 1 }}>
             {syncing ? 'Syncing...' : 'Sync'}
           </span>

@@ -238,11 +238,13 @@ export default function CalendarTab() {
                       style={{ backgroundColor: cal.color }}
                     />
                   )}
-                  <Toggle
-                    label={cal.summary + (cal.primary ? ' (Primary)' : '')}
-                    checked={!ignoredIds.includes(cal.id)}
-                    onChange={(enabled) => handleToggleCalendar(cal.id, enabled)}
-                  />
+                  <div className="flex-1 min-w-0">
+                    <Toggle
+                      label={cal.summary + (cal.primary ? ' (Primary)' : '')}
+                      checked={!ignoredIds.includes(cal.id)}
+                      onChange={(enabled) => handleToggleCalendar(cal.id, enabled)}
+                    />
+                  </div>
                 </div>
               ))}
             </div>

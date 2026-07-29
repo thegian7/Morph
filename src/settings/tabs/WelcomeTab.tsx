@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button } from '@/shared/components';
 
 interface WelcomeTabProps {
   onGoToCalendar: () => void;
@@ -68,18 +69,35 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
         {STEPS.map((s) => (
           <div key={s.id} className="flex items-center gap-2">
             <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
-                step === s.id
-                  ? 'bg-blue-500 text-white'
-                  : step > s.id
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'bg-gray-100 text-gray-400'
-              }`}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium"
+              style={{
+                backgroundColor:
+                  step === s.id
+                    ? 'var(--color-primary)'
+                    : step > s.id
+                      ? 'color-mix(in srgb, var(--color-primary) 15%, transparent)'
+                      : 'var(--color-surface-overlay)',
+                color:
+                  step === s.id
+                    ? '#ffffff'
+                    : step > s.id
+                      ? 'var(--color-primary)'
+                      : 'var(--color-text-muted)',
+                transition: 'var(--transition-fast)',
+              }}
             >
               {step > s.id ? '\u2713' : s.id}
             </div>
             {s.id < STEPS.length && (
-              <div className={`w-8 h-0.5 ${step > s.id ? 'bg-blue-200' : 'bg-gray-200'}`} />
+              <div
+                className="w-8 h-0.5"
+                style={{
+                  backgroundColor:
+                    step > s.id
+                      ? 'color-mix(in srgb, var(--color-primary) 40%, transparent)'
+                      : 'var(--color-border)',
+                }}
+              />
             )}
           </div>
         ))}
@@ -89,38 +107,43 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
       {step === 1 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Welcome to Morph</h2>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
             Morph paints a subtle, color-changing border around your screen based on your calendar.
             Green when you have space. Amber when a meeting is approaching. Purple when time's up.
           </p>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
             No alarms. No pop-ups. Just color in your peripheral vision — the way your brain
             processes time best.
           </p>
-          <p className="text-sm text-gray-500">Let's get you set up in about 30 seconds.</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            Let's get you set up in about 30 seconds.
+          </p>
         </div>
       )}
 
       {step === 2 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Connect your calendar</h2>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
             Morph reads your upcoming events to decide which color to show. Connect Google Calendar
             or Microsoft 365 to get started.
           </p>
 
-          <button
-            onClick={onGoToCalendar}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 transition-colors"
-          >
+          <Button variant="primary" onClick={onGoToCalendar}>
             Go to Calendar settings
-          </button>
+          </Button>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-            <p className="text-sm font-medium text-amber-800 mb-1">
+          <div
+            className="rounded-lg p-3"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--color-amber) 12%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--color-amber) 35%, transparent)',
+            }}
+          >
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-text)' }}>
               Google users: "unverified app" warning
             </p>
-            <p className="text-xs text-amber-700 leading-relaxed">
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
               Google will show a warning that Morph is "not verified." This is normal for beta apps
               and does not mean it's unsafe. To continue: click <strong>Advanced</strong>, then{' '}
               <strong>Go to Morph (unsafe)</strong>. Morph only reads your calendar event times and
@@ -128,7 +151,7 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
             </p>
           </div>
 
-          <p className="text-xs text-gray-400">
+          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
             You can also skip this and connect a calendar later from the Calendar tab.
           </p>
         </div>
@@ -137,15 +160,23 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
       {step === 3 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">What the colors mean</h2>
-          <p className="text-sm text-gray-600 mb-3">
+          <p className="text-sm mb-3" style={{ color: 'var(--color-text-secondary)' }}>
             Colors shift gradually — your brain absorbs the change without ever having to "check the
             time."
           </p>
 
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div
+            className="rounded-lg overflow-hidden"
+            style={{ border: '1px solid var(--color-border)' }}
+          >
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-gray-50 text-gray-500">
+                <tr
+                  style={{
+                    backgroundColor: 'var(--color-surface-overlay)',
+                    color: 'var(--color-text-muted)',
+                  }}
+                >
                   <th className="text-left px-3 py-2 font-medium">Status</th>
                   <th className="text-left px-3 py-2 font-medium">Color</th>
                   <th className="text-left px-3 py-2 font-medium">You feel</th>
@@ -153,15 +184,27 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
               </thead>
               <tbody>
                 {COLOR_PHASES.map((phase, i) => (
-                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-3 py-1.5 text-gray-700">{phase.situation}</td>
+                  <tr
+                    key={i}
+                    style={{
+                      backgroundColor:
+                        i % 2 === 0
+                          ? 'var(--color-surface-raised)'
+                          : 'var(--color-surface-overlay)',
+                    }}
+                  >
+                    <td className="px-3 py-1.5" style={{ color: 'var(--color-text)' }}>
+                      {phase.situation}
+                    </td>
                     <td className="px-3 py-1.5">
                       <span className="inline-flex items-center gap-1.5">
                         <span className={`w-3 h-3 rounded-full ${phase.color}`} />
-                        <span className="text-gray-600">{phase.label}</span>
+                        <span style={{ color: 'var(--color-text-secondary)' }}>{phase.label}</span>
                       </span>
                     </td>
-                    <td className="px-3 py-1.5 text-gray-500">{phase.feel}</td>
+                    <td className="px-3 py-1.5" style={{ color: 'var(--color-text-muted)' }}>
+                      {phase.feel}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -173,11 +216,11 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
       {step === 4 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">You're all set</h2>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
             Morph is running in your menu bar. The border will appear automatically based on your
             calendar events.
           </p>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
             You can adjust border thickness, color palette, and more from these settings at any
             time. Right-click the menu bar icon to access quick controls.
           </p>
@@ -186,30 +229,23 @@ export default function WelcomeTab({ onGoToCalendar, onComplete }: WelcomeTabPro
 
       {/* Navigation buttons */}
       <div className="flex items-center justify-between pt-2">
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setStep((s) => Math.max(1, s - 1))}
-          className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
-            step === 1 ? 'text-gray-300 cursor-default' : 'text-gray-600 hover:bg-gray-100'
-          }`}
           disabled={step === 1}
+          style={{ opacity: step === 1 ? 0.4 : 1, cursor: step === 1 ? 'default' : 'pointer' }}
         >
           Back
-        </button>
+        </Button>
 
         {step < 4 ? (
-          <button
-            onClick={() => setStep((s) => Math.min(4, s + 1))}
-            className="px-4 py-1.5 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 transition-colors"
-          >
+          <Button variant="primary" onClick={() => setStep((s) => Math.min(4, s + 1))}>
             Next
-          </button>
+          </Button>
         ) : (
-          <button
-            onClick={onComplete}
-            className="px-4 py-1.5 text-sm font-medium text-white bg-blue-500 rounded hover:bg-blue-600 transition-colors"
-          >
+          <Button variant="primary" onClick={onComplete}>
             Get started
-          </button>
+          </Button>
         )}
       </div>
     </div>
