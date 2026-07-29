@@ -17,15 +17,22 @@ use super::types::{CalendarEvent, ProviderType};
 ///   [env]
 ///   GOOGLE_CLIENT_ID = "your-client-id.apps.googleusercontent.com"
 ///   GOOGLE_CLIENT_SECRET = "GOCSPX-your-secret"
-const GOOGLE_CLIENT_ID: &str = env!("GOOGLE_CLIENT_ID");
-const GOOGLE_CLIENT_SECRET: &str = env!("GOOGLE_CLIENT_SECRET");
+/// Builds without credentials still compile (and pass tests); the Google connect
+/// flow returns an error at runtime until credentials are provided.
+const GOOGLE_CLIENT_ID: &str = match option_env!("GOOGLE_CLIENT_ID") {
+    Some(id) => id,
+    None => "",
+};
+const GOOGLE_CLIENT_SECRET: &str = match option_env!("GOOGLE_CLIENT_SECRET") {
+    Some(secret) => secret,
+    None => "",
+};
 
 const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v3/userinfo";
 const CALENDAR_EVENTS_BASE: &str = "https://www.googleapis.com/calendar/v3/calendars";
-const CALENDAR_LIST_URL: &str =
-    "https://www.googleapis.com/calendar/v3/users/me/calendarList";
+const CALENDAR_LIST_URL: &str = "https://www.googleapis.com/calendar/v3/users/me/calendarList";
 
 const SCOPE: &str = "https://www.googleapis.com/auth/calendar.events.readonly \
                      https://www.googleapis.com/auth/userinfo.email";
@@ -577,6 +584,14 @@ fn map_google_event(
 #[async_trait]
 impl CalendarProvider for GoogleCalendarProvider {
     async fn authenticate(&mut self) -> Result<(), CalendarError> {
+        if GOOGLE_CLIENT_ID.is_empty() || GOOGLE_CLIENT_SECRET.is_empty() {
+            return Err(CalendarError::AuthenticationFailed(
+                "Google OAuth credentials were not configured at build time; \
+                 see src-tauri/.cargo/config.toml.example"
+                    .to_string(),
+            ));
+        }
+
         // 1. Generate PKCE pair
         let verifier = generate_code_verifier();
         let challenge = code_challenge(&verifier);

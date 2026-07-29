@@ -339,8 +339,7 @@ mod tests {
 
     #[test]
     fn overlay_style_flags_are_set() {
-        let flags =
-            WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TOPMOST.0;
+        let flags = WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0 | WS_EX_TOOLWINDOW.0 | WS_EX_TOPMOST.0;
         assert!(flags & WS_EX_TRANSPARENT.0 != 0);
         assert!(flags & WS_EX_LAYERED.0 != 0);
         assert!(flags & WS_EX_TOOLWINDOW.0 != 0);

@@ -888,9 +888,11 @@ mod tests {
 
     #[test]
     fn test_timer_pause_sets_status() {
-        let mut state = TimerState::default();
-        state.status = "running".to_string();
-        state.started_at = Some(chrono::Utc::now().to_rfc3339());
+        let mut state = TimerState {
+            status: "running".to_string(),
+            started_at: Some(chrono::Utc::now().to_rfc3339()),
+            ..Default::default()
+        };
         // Simulate pause
         state.status = "paused".to_string();
         state.paused_at = Some(chrono::Utc::now().to_rfc3339());
@@ -900,9 +902,11 @@ mod tests {
 
     #[test]
     fn test_timer_resume_clears_paused_at() {
-        let mut state = TimerState::default();
-        state.status = "paused".to_string();
-        state.paused_at = Some(chrono::Utc::now().to_rfc3339());
+        let mut state = TimerState {
+            status: "paused".to_string(),
+            paused_at: Some(chrono::Utc::now().to_rfc3339()),
+            ..Default::default()
+        };
         // Simulate resume
         state.status = "running".to_string();
         state.started_at = Some(chrono::Utc::now().to_rfc3339());
