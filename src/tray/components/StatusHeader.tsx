@@ -2,19 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { Badge } from '../../shared/components';
 
+/** Matches the color engine's BorderState payload broadcast by the overlay. */
 interface BorderState {
   phase: string;
   color: string;
   opacity: number;
-  status_text: string;
+  pulseSpeed: number;
+}
+
+/** Map a color-engine phase to a headline + optional detail line. */
+function describePhase(phase: string): { label: string; detail?: string } {
+  if (phase === 'no-events') return { label: 'No Events' };
+  if (phase === 'free-deep') return { label: 'Free', detail: 'No meetings for a while' };
+  if (phase === 'warning-far') return { label: 'Meeting Soon', detail: 'About 30 minutes away' };
+  if (phase === 'warning-mid') return { label: 'Meeting Soon', detail: 'About 15 minutes away' };
+  if (phase === 'warning-near') return { label: 'Meeting Soon', detail: 'About 5 minutes away' };
+  if (phase === 'warning-imminent') return { label: 'Meeting Soon', detail: 'Starting any minute' };
+  if (phase === 'overtime') return { label: 'Overtime', detail: 'The meeting has run over' };
+  if (phase.startsWith('in-session')) return { label: 'In Session' };
+  if (phase.startsWith('gap-')) return { label: 'Break', detail: 'Gap between meetings' };
+  return { label: 'Free' };
 }
 
 export function StatusHeader() {
   const [borderState, setBorderState] = useState<BorderState>({
-    phase: 'none',
-    color: 'var(--color-text-muted)',
+    phase: 'no-events',
+    color: '',
     opacity: 0,
-    status_text: 'No events',
+    pulseSpeed: 0,
   });
 
   useEffect(() => {
@@ -26,16 +41,7 @@ export function StatusHeader() {
     };
   }, []);
 
-  const phaseLabels: Record<string, string> = {
-    free: 'Free',
-    warning: 'Meeting Soon',
-    session: 'In Session',
-    overtime: 'Overtime',
-    paused: 'Paused',
-    none: 'No Events',
-  };
-
-  const label = phaseLabels[borderState.phase] ?? 'No Events';
+  const { label, detail } = describePhase(borderState.phase);
 
   return (
     <div
@@ -51,11 +57,11 @@ export function StatusHeader() {
         <span style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--color-text)' }}>
           {label}
         </span>
-        {borderState.phase !== 'none' && (
+        {borderState.phase !== 'no-events' && (
           <Badge color={borderState.color || 'var(--color-text-muted)'} text={label} />
         )}
       </div>
-      {borderState.status_text && borderState.status_text.toLowerCase() !== label.toLowerCase() && (
+      {detail && (
         <p
           style={{
             fontSize: 'var(--text-sm)',
@@ -63,7 +69,7 @@ export function StatusHeader() {
             marginTop: 'var(--space-1)',
           }}
         >
-          {borderState.status_text}
+          {detail}
         </p>
       )}
     </div>

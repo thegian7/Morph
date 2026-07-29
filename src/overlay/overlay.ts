@@ -1,4 +1,4 @@
-import { listen } from '@tauri-apps/api/event';
+import { listen, emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getBorderState } from '@/lib/color-engine/index';
@@ -91,7 +91,26 @@ let timerState: TimerState = {
 };
 let userSettings: UserSettings = { ...DEFAULT_USER_SETTINGS };
 let borderPausedUntil: number | null = null;
+/** Set when the user picked "pause until next event": resume when an event
+ *  that starts after this timestamp begins. */
+let pausedUntilNextEventSince: number | null = null;
 let lastState: BorderStatePayload | null = null;
+/** Last state broadcast to the tray (leader window only). */
+let lastEmitted: BorderStatePayload | null = null;
+
+/** Per-threshold enablement backing `userSettings.warningWindows`. */
+const WARNING_SETTING_MINUTES: Record<string, number> = {
+  warning_30min: 30,
+  warning_15min: 15,
+  warning_5min: 5,
+  warning_2min: 2,
+};
+const warningEnabled: Record<string, boolean> = {
+  warning_30min: true,
+  warning_15min: true,
+  warning_5min: true,
+  warning_2min: true,
+};
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -137,6 +156,28 @@ function applySettingToState(key: string, value: string): void {
         userSettings = { ...userSettings, borderPosition: value as BorderPosition };
       }
       break;
+    case 'warning_30min':
+    case 'warning_15min':
+    case 'warning_5min':
+    case 'warning_2min': {
+      warningEnabled[key] = value === 'true';
+      const windows = Object.entries(WARNING_SETTING_MINUTES)
+        .filter(([k]) => warningEnabled[k])
+        .map(([, minutes]) => minutes)
+        .sort((a, b) => b - a);
+      userSettings = { ...userSettings, warningWindows: windows };
+      break;
+    }
+    case 'ignored_calendar_ids':
+      try {
+        const ids: unknown = JSON.parse(value);
+        if (Array.isArray(ids) && ids.every((id) => typeof id === 'string')) {
+          userSettings = { ...userSettings, ignoredCalendarIds: ids };
+        }
+      } catch {
+        // malformed JSON — keep the previous list
+      }
+      break;
   }
 }
 
@@ -177,40 +218,61 @@ const HIDDEN_STATE: BorderStatePayload = {
   phase: 'no-events',
 };
 
+/** True while a "pause until next event" is in effect. Clears itself once an
+ *  event that started after the pause begins. */
+function isPausedForNextEvent(nowMs: number): boolean {
+  if (pausedUntilNextEventSince === null) return false;
+  const since = pausedUntilNextEventSince;
+  const resumed = calendarEvents.some((e) => {
+    const start = new Date(e.startTime).getTime();
+    return start > since && start <= nowMs;
+  });
+  if (resumed) {
+    pausedUntilNextEventSince = null;
+    return false;
+  }
+  return true;
+}
+
+function isPaused(nowMs: number): boolean {
+  if (borderPausedUntil !== null) {
+    if (nowMs < borderPausedUntil) return true;
+    borderPausedUntil = null; // pause expired
+  }
+  return isPausedForNextEvent(nowMs);
+}
+
 function computeAndApply(
   pulse: ReturnType<typeof createPulseController>,
   windowLabel: string,
 ): void {
-  // If border is paused, show transparent
-  if (borderPausedUntil !== null) {
-    if (Date.now() < borderPausedUntil) {
-      if (stateUnchanged(lastState, HIDDEN_STATE)) return;
-      lastState = HIDDEN_STATE;
-      pulse.update(HIDDEN_STATE);
-      return;
-    }
-    // Pause expired
-    borderPausedUntil = null;
+  const now = new Date();
+
+  let globalState: BorderStatePayload;
+  if (isPaused(now.getTime())) {
+    globalState = HIDDEN_STATE;
+  } else {
+    // Merge timer event (if active) into the calendar events
+    const timerEvent = getTimerAsEvent(timerState, now);
+    const allEvents = timerEvent ? [...calendarEvents, timerEvent] : calendarEvents;
+    globalState = getBorderState(allEvents, now, userSettings);
+  }
+
+  // The top window acts as leader and broadcasts state changes so the
+  // tray icon and popover reflect the live border state.
+  if (windowLabel === 'border-top' && !stateUnchanged(lastEmitted, globalState)) {
+    lastEmitted = globalState;
+    emit('border-state-update', globalState).catch(() => {});
   }
 
   // Hide this window if it's not active for the current position setting
-  if (!isWindowActiveForPosition(windowLabel, userSettings.borderPosition)) {
-    if (stateUnchanged(lastState, HIDDEN_STATE)) return;
-    lastState = HIDDEN_STATE;
-    pulse.update(HIDDEN_STATE);
-    return;
-  }
+  const display = isWindowActiveForPosition(windowLabel, userSettings.borderPosition)
+    ? globalState
+    : HIDDEN_STATE;
 
-  const now = new Date();
-
-  // Merge timer event (if active) into the calendar events
-  const timerEvent = getTimerAsEvent(timerState, now);
-  const allEvents = timerEvent ? [...calendarEvents, timerEvent] : calendarEvents;
-
-  const state = getBorderState(allEvents, now, userSettings);
-  if (stateUnchanged(lastState, state)) return;
-  lastState = state;
-  pulse.update(state);
+  if (stateUnchanged(lastState, display)) return;
+  lastState = display;
+  pulse.update(display);
 }
 
 async function setup() {
@@ -244,9 +306,21 @@ async function setup() {
     lastState = null;
   });
 
-  // Listen for border pause events
+  // Listen for border pause events.
+  // minutes > 0: pause for that duration; 0: resume; < 0: pause until the
+  // next calendar event begins.
   await listen<{ minutes: number }>('border-paused', (event) => {
-    borderPausedUntil = Date.now() + event.payload.minutes * 60 * 1000;
+    const minutes = event.payload.minutes;
+    if (minutes > 0) {
+      borderPausedUntil = Date.now() + minutes * 60 * 1000;
+      pausedUntilNextEventSince = null;
+    } else if (minutes === 0) {
+      borderPausedUntil = null;
+      pausedUntilNextEventSince = null;
+    } else {
+      borderPausedUntil = null;
+      pausedUntilNextEventSince = Date.now();
+    }
   });
 
   // Drive the color engine at 1 Hz — replaces the Rust tick emitter
