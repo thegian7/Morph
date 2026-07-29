@@ -25,9 +25,7 @@ function createMockSettings(): SettingsContextValue {
 
 function renderWithSettings(ui: React.ReactElement) {
   return render(
-    <SettingsContext.Provider value={createMockSettings()}>
-      {ui}
-    </SettingsContext.Provider>,
+    <SettingsContext.Provider value={createMockSettings()}>{ui}</SettingsContext.Provider>,
   );
 }
 

@@ -27,19 +27,23 @@ export function ActiveTimer() {
         setTimer(state);
       }
     });
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, []);
 
   if (!timer) return null;
 
-  const progress = timer.duration_seconds > 0
-    ? 1 - (timer.remaining_seconds / timer.duration_seconds)
-    : 0;
+  const progress =
+    timer.duration_seconds > 0 ? 1 - timer.remaining_seconds / timer.duration_seconds : 0;
 
   const isPaused = timer.status === 'paused';
 
   return (
-    <div className="px-4 py-2 flex items-center gap-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+    <div
+      className="px-4 py-2 flex items-center gap-3"
+      style={{ borderTop: '1px solid var(--color-border-subtle)' }}
+    >
       <ProgressRing progress={progress} size={48} strokeWidth={3} />
       <div className="flex-1">
         {timer.preset_name && (
@@ -47,7 +51,14 @@ export function ActiveTimer() {
             {timer.preset_name}
           </div>
         )}
-        <div style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--color-text)', fontVariantNumeric: 'tabular-nums' }}>
+        <div
+          style={{
+            fontSize: 'var(--text-lg)',
+            fontWeight: 600,
+            color: 'var(--color-text)',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
           {formatCountdown(timer.remaining_seconds)}
         </div>
       </div>

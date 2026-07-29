@@ -78,13 +78,7 @@ export default function App() {
         >
           {/* Morph logo */}
           <div className="flex items-center gap-2 mb-5" data-testid="morph-logo">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <circle cx="12" cy="12" r="10" stroke="#4A9B6E" strokeWidth="2" />
               <circle cx="12" cy="12" r="5" fill="#4A9B6E" />
             </svg>
@@ -106,7 +100,9 @@ export default function App() {
                     fontSize: 'var(--text-sm)',
                     fontWeight: activeTab === tab.id ? 500 : 400,
                     backgroundColor:
-                      activeTab === tab.id ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : 'transparent',
+                      activeTab === tab.id
+                        ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)'
+                        : 'transparent',
                     color:
                       activeTab === tab.id ? 'var(--color-primary)' : 'var(--color-text-secondary)',
                     transition: 'var(--transition-fast)',
@@ -118,10 +114,7 @@ export default function App() {
             ))}
           </ul>
 
-          <div
-            className="pt-3 mt-auto"
-            style={{ borderTop: '1px solid var(--color-border)' }}
-          >
+          <div className="pt-3 mt-auto" style={{ borderTop: '1px solid var(--color-border)' }}>
             <button
               onClick={() => open(KOFI_URL)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg w-full"

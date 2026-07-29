@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
-import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart';
+import { enable, disable } from '@tauri-apps/plugin-autostart';
 import { useSettings } from '../hooks/useSettings';
 import { Toggle, Card, SectionHeader, Chip } from '@/shared/components';
 import { useTheme, type ThemePreference } from '@/shared/hooks/useTheme';
@@ -37,7 +37,10 @@ export function GeneralTab() {
   // Sync theme preference from settings on mount
   const savedTheme = getSetting('theme_preference');
   useEffect(() => {
-    if (savedTheme && (savedTheme === 'system' || savedTheme === 'light' || savedTheme === 'dark')) {
+    if (
+      savedTheme &&
+      (savedTheme === 'system' || savedTheme === 'light' || savedTheme === 'dark')
+    ) {
       setPreference(savedTheme as ThemePreference);
     }
   }, [savedTheme, setPreference]);
@@ -112,18 +115,17 @@ export function GeneralTab() {
       <section>
         <SectionHeader title="Startup" description="Control how Morph behaves on login." />
         <Card>
-          <Toggle
-            label="Launch at login"
-            checked={launchAtLogin}
-            onChange={handleToggleLaunch}
-          />
+          <Toggle label="Launch at login" checked={launchAtLogin} onChange={handleToggleLaunch} />
         </Card>
       </section>
 
       {/* Display Selection — only shown with multiple monitors */}
       {monitors.length > 1 && (
         <section>
-          <SectionHeader title="Display" description="Choose which monitor shows the border overlay." />
+          <SectionHeader
+            title="Display"
+            description="Choose which monitor shows the border overlay."
+          />
           <div className="flex flex-wrap gap-3">
             {monitors.map((monitor) => (
               <Card
@@ -131,15 +133,34 @@ export function GeneralTab() {
                 selected={selectedDisplay === monitor.id}
                 onClick={() => setSetting('selected_display', monitor.id)}
               >
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--color-text)' }}>
+                <span
+                  style={{
+                    fontSize: 'var(--text-sm)',
+                    fontWeight: 500,
+                    color: 'var(--color-text)',
+                  }}
+                >
                   {monitor.name}
                   {monitor.is_primary && (
-                    <span style={{ marginLeft: '0.375rem', fontSize: 'var(--text-xs)', color: 'var(--color-primary)', fontWeight: 400 }}>
+                    <span
+                      style={{
+                        marginLeft: '0.375rem',
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--color-primary)',
+                        fontWeight: 400,
+                      }}
+                    >
                       (Primary)
                     </span>
                   )}
                 </span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', display: 'block' }}>
+                <span
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-text-secondary)',
+                    display: 'block',
+                  }}
+                >
                   {Math.round(monitor.width)} &times; {Math.round(monitor.height)}
                 </span>
               </Card>

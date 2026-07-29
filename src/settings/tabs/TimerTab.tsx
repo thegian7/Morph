@@ -77,9 +77,7 @@ export default function TimerTab() {
 
   const isActive = timer.status === 'running' || timer.status === 'paused';
   const progress =
-    timer.durationSeconds > 0
-      ? Math.max(0, Math.min(1, 1 - remaining / timer.durationSeconds))
-      : 0;
+    timer.durationSeconds > 0 ? Math.max(0, Math.min(1, 1 - remaining / timer.durationSeconds)) : 0;
 
   const handleStart = useCallback((preset: TimerPreset) => {
     emit('start-timer', preset.durationSeconds);
@@ -140,7 +138,14 @@ export default function TimerTab() {
           padding: 'var(--space-6)',
         }}
       >
-        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          style={{
+            position: 'relative',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <ProgressRing progress={progress} size={96} strokeWidth={4} />
           <span
             style={{

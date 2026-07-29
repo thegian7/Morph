@@ -5,9 +5,7 @@ import { render, screen } from '@testing-library/react';
 
 vi.mock('@tauri-apps/plugin-sql', () => ({
   default: {
-    load: vi
-      .fn()
-      .mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
+    load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
   },
 }));
 vi.mock('@tauri-apps/api/event', () => ({

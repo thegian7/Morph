@@ -4,25 +4,25 @@
 
 :root {
   /* Surface */
-  --color-surface-base: #FAFAF9;
-  --color-surface-raised: #FFFFFF;
-  --color-surface-overlay: #F5F5F4;
-  --color-border: #E7E5E4;
-  --color-border-subtle: #F0EEEC;
+  --color-surface-base: #fafaf9;
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: #f5f5f4;
+  --color-border: #e7e5e4;
+  --color-border-subtle: #f0eeec;
 
   /* Text */
-  --color-text: #1C1917;
-  --color-text-secondary: #57534E;
-  --color-text-muted: #A8A29E;
+  --color-text: #1c1917;
+  --color-text-secondary: #57534e;
+  --color-text-muted: #a8a29e;
 
   /* Brand */
-  --color-primary: #4A9B6E;
-  --color-primary-hover: #3D8A5E;
-  --color-amber: #D4A843;
-  --color-purple: #8B6AAE;
-  --color-orange: #D4864A;
-  --color-danger: #E54D4D;
-  --color-success: #4A9B6E;
+  --color-primary: #4a9b6e;
+  --color-primary-hover: #3d8a5e;
+  --color-amber: #d4a843;
+  --color-purple: #8b6aae;
+  --color-orange: #d4864a;
+  --color-danger: #e54d4d;
+  --color-success: #4a9b6e;
 
   /* Typography */
   --text-xs: 11px;
@@ -47,14 +47,14 @@
   --transition-theme: 300ms ease;
 }
 
-[data-theme="dark"] {
+[data-theme='dark'] {
   --color-surface-base: #0f1117;
   --color-surface-raised: #1a1d2e;
   --color-surface-overlay: #252836;
-  --color-border: #2E3144;
+  --color-border: #2e3144;
   --color-border-subtle: #232638;
 
-  --color-text: #E8E6E3;
-  --color-text-secondary: #A8A5A0;
-  --color-text-muted: #6B6865;
+  --color-text: #e8e6e3;
+  --color-text-secondary: #a8a5a0;
+  --color-text-muted: #6b6865;
 }

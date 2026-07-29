@@ -164,9 +164,7 @@ export default function CalendarTab() {
                     className="w-8 h-8 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: config.color }}
                   >
-                    <span className="text-white text-sm font-bold">
-                      {config.label.charAt(0)}
-                    </span>
+                    <span className="text-white text-sm font-bold">{config.label.charAt(0)}</span>
                   </div>
                   <div>
                     <p

@@ -52,7 +52,10 @@ export function QuickActions() {
           {showPauseFlyout && (
             <div
               className="absolute bottom-full left-0 mb-1 flex gap-1 p-2 rounded-lg"
-              style={{ backgroundColor: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}
+              style={{
+                backgroundColor: 'var(--color-surface-raised)',
+                border: '1px solid var(--color-border)',
+              }}
             >
               {PAUSE_DURATIONS.map((d) => (
                 <Chip
@@ -79,7 +82,10 @@ export function QuickActions() {
           {showTimerFlyout && (
             <div
               className="absolute bottom-full left-0 mb-1 flex gap-1 p-2 rounded-lg"
-              style={{ backgroundColor: 'var(--color-surface-raised)', border: '1px solid var(--color-border)' }}
+              style={{
+                backgroundColor: 'var(--color-surface-raised)',
+                border: '1px solid var(--color-border)',
+              }}
             >
               {TIMER_PRESETS.map((p) => (
                 <Chip

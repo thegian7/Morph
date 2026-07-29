@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
-import { listen, emit } from '@tauri-apps/api/event';
+import { listen } from '@tauri-apps/api/event';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
 
-export function getResolvedTheme(
-  preference: ThemePreference,
-  osDark: boolean,
-): ResolvedTheme {
+export function getResolvedTheme(preference: ThemePreference, osDark: boolean): ResolvedTheme {
   if (preference === 'system') return osDark ? 'dark' : 'light';
   return preference;
 }
@@ -41,7 +38,9 @@ export function useTheme() {
         setPreference(event.payload.theme_preference as ThemePreference);
       }
     });
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, []);
 
   return { preference, resolved, setPreference };

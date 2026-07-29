@@ -19,6 +19,7 @@
 **All other tasks depend on this completing first.**
 
 **Files:**
+
 - Create: `src/shared/design-tokens.css`
 - Create: `src/shared/components/Toggle.tsx`
 - Create: `src/shared/components/Card.tsx`
@@ -47,25 +48,25 @@ Create `src/shared/design-tokens.css`:
 
 :root {
   /* Surface */
-  --color-surface-base: #FAFAF9;
-  --color-surface-raised: #FFFFFF;
-  --color-surface-overlay: #F5F5F4;
-  --color-border: #E7E5E4;
-  --color-border-subtle: #F0EEEC;
+  --color-surface-base: #fafaf9;
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: #f5f5f4;
+  --color-border: #e7e5e4;
+  --color-border-subtle: #f0eeec;
 
   /* Text */
-  --color-text: #1C1917;
-  --color-text-secondary: #57534E;
-  --color-text-muted: #A8A29E;
+  --color-text: #1c1917;
+  --color-text-secondary: #57534e;
+  --color-text-muted: #a8a29e;
 
   /* Brand */
-  --color-primary: #4A9B6E;
-  --color-primary-hover: #3D8A5E;
-  --color-amber: #D4A843;
-  --color-purple: #8B6AAE;
-  --color-orange: #D4864A;
-  --color-danger: #E54D4D;
-  --color-success: #4A9B6E;
+  --color-primary: #4a9b6e;
+  --color-primary-hover: #3d8a5e;
+  --color-amber: #d4a843;
+  --color-purple: #8b6aae;
+  --color-orange: #d4864a;
+  --color-danger: #e54d4d;
+  --color-success: #4a9b6e;
 
   /* Typography */
   --text-xs: 11px;
@@ -90,16 +91,16 @@ Create `src/shared/design-tokens.css`:
   --transition-theme: 300ms ease;
 }
 
-[data-theme="dark"] {
+[data-theme='dark'] {
   --color-surface-base: #0f1117;
   --color-surface-raised: #1a1d2e;
   --color-surface-overlay: #252836;
-  --color-border: #2E3144;
+  --color-border: #2e3144;
   --color-border-subtle: #232638;
 
-  --color-text: #E8E6E3;
-  --color-text-secondary: #A8A5A0;
-  --color-text-muted: #6B6865;
+  --color-text: #e8e6e3;
+  --color-text-secondary: #a8a5a0;
+  --color-text-muted: #6b6865;
 }
 ```
 
@@ -180,10 +181,7 @@ import { listen, emit } from '@tauri-apps/api/event';
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
 
-export function getResolvedTheme(
-  preference: ThemePreference,
-  osDark: boolean,
-): ResolvedTheme {
+export function getResolvedTheme(preference: ThemePreference, osDark: boolean): ResolvedTheme {
   if (preference === 'system') return osDark ? 'dark' : 'light';
   return preference;
 }
@@ -217,7 +215,9 @@ export function useTheme() {
         setPreference(event.payload.theme_preference as ThemePreference);
       }
     });
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, []);
 
   return { preference, resolved, setPreference };
@@ -309,6 +309,7 @@ Expected: FAIL — modules not found
 Create each component file. All components use CSS custom properties from the design tokens. Here's the pattern (implement all 10 components listed in Files):
 
 `src/shared/components/Toggle.tsx`:
+
 ```tsx
 import React from 'react';
 
@@ -345,6 +346,7 @@ export function Toggle({ label, checked, onChange, disabled }: ToggleProps) {
 ```
 
 `src/shared/components/Button.tsx`:
+
 ```tsx
 import React from 'react';
 
@@ -375,7 +377,11 @@ export function Button({ variant = 'primary', children, className = '', ...props
   return (
     <button
       className={`px-4 py-2 rounded-lg font-medium cursor-pointer ${className}`}
-      style={{ fontSize: 'var(--text-sm)', transition: 'var(--transition-fast)', ...styles[variant] }}
+      style={{
+        fontSize: 'var(--text-sm)',
+        transition: 'var(--transition-fast)',
+        ...styles[variant],
+      }}
       {...props}
     >
       {children}
@@ -385,6 +391,7 @@ export function Button({ variant = 'primary', children, className = '', ...props
 ```
 
 `src/shared/components/Card.tsx`:
+
 ```tsx
 import React from 'react';
 
@@ -413,6 +420,7 @@ export function Card({ children, className = '', onClick, selected }: CardProps)
 ```
 
 `src/shared/components/Chip.tsx`:
+
 ```tsx
 import React from 'react';
 
@@ -442,6 +450,7 @@ export function Chip({ label, selected, onSelect }: ChipProps) {
 ```
 
 `src/shared/components/SectionHeader.tsx`:
+
 ```tsx
 import React from 'react';
 
@@ -457,7 +466,13 @@ export function SectionHeader({ title, description }: SectionHeaderProps) {
         {title}
       </h3>
       {description && (
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginTop: 'var(--space-1)' }}>
+        <p
+          style={{
+            fontSize: 'var(--text-sm)',
+            color: 'var(--color-text-secondary)',
+            marginTop: 'var(--space-1)',
+          }}
+        >
           {description}
         </p>
       )}
@@ -467,6 +482,7 @@ export function SectionHeader({ title, description }: SectionHeaderProps) {
 ```
 
 `src/shared/components/Badge.tsx`:
+
 ```tsx
 import React from 'react';
 
@@ -477,7 +493,10 @@ interface BadgeProps {
 
 export function Badge({ color, text }: BadgeProps) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full" style={{ fontSize: 'var(--text-xs)' }}>
+    <span
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full"
+      style={{ fontSize: 'var(--text-xs)' }}
+    >
       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
       <span style={{ color: 'var(--color-text-secondary)' }}>{text}</span>
     </span>
@@ -486,6 +505,7 @@ export function Badge({ color, text }: BadgeProps) {
 ```
 
 `src/shared/components/Slider.tsx`:
+
 ```tsx
 import React from 'react';
 
@@ -521,6 +541,7 @@ export function Slider({ min, max, step = 1, value, onChange, label }: SliderPro
 ```
 
 `src/shared/components/IconButton.tsx`:
+
 ```tsx
 import React from 'react';
 
@@ -547,6 +568,7 @@ export function IconButton({ children, title, className = '', ...props }: IconBu
 ```
 
 `src/shared/components/ProgressRing.tsx`:
+
 ```tsx
 import React from 'react';
 
@@ -592,6 +614,7 @@ export function ProgressRing({ progress, size, strokeWidth = 3, color }: Progres
 ```
 
 `src/shared/components/index.ts`:
+
 ```typescript
 export { Toggle } from './Toggle';
 export { Card } from './Card';
@@ -612,11 +635,13 @@ Expected: PASS
 - [ ] **Step 10: Wire design tokens into settings entry point**
 
 Modify `src/settings/styles.css` — replace contents with:
+
 ```css
 @import '../shared/design-tokens.css';
 ```
 
 Modify `src/settings/main.tsx` — add theme initialization:
+
 ```tsx
 // At top of file, add import:
 import { applyTheme, getResolvedTheme } from '../shared/hooks/useTheme';
@@ -646,6 +671,7 @@ git commit -m "feat: add design system with adaptive theming and shared componen
 
 **Depends on:** Task 1
 **Files:**
+
 - Modify: `src/settings/tabs/GeneralTab.tsx`
 - Create: `src/settings/__tests__/GeneralTab.redesign.test.tsx`
 - Modify: `src-tauri/Cargo.toml` (add `tauri-plugin-autostart`)
@@ -655,11 +681,13 @@ git commit -m "feat: add design system with adaptive theming and shared componen
 - [ ] **Step 1: Add `tauri-plugin-autostart` dependency**
 
 Add to `src-tauri/Cargo.toml` under `[dependencies]`:
+
 ```toml
 tauri-plugin-autostart = { version = "2", features = [] }
 ```
 
 Add to `package.json` dependencies:
+
 ```json
 "@tauri-apps/plugin-autostart": "^2.0.0"
 ```
@@ -669,6 +697,7 @@ Run: `cd src-tauri && cargo check` (verify dependency resolves)
 - [ ] **Step 2: Register autostart plugin in lib.rs**
 
 Modify `src-tauri/src/lib.rs` — add to the plugin chain in `run()`:
+
 ```rust
 .plugin(tauri_plugin_autostart::init(
     tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -677,6 +706,7 @@ Modify `src-tauri/src/lib.rs` — add to the plugin chain in `run()`:
 ```
 
 Add capability permissions to `src-tauri/capabilities/default.json` (or `tauri.conf.json` capabilities section):
+
 ```json
 "autostart:allow-enable",
 "autostart:allow-disable",
@@ -694,7 +724,9 @@ import userEvent from '@testing-library/user-event';
 
 // Mock Tauri APIs
 vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: { load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }) },
+  default: {
+    load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
+  },
 }));
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
@@ -743,6 +775,7 @@ git commit -m "feat: redesign General tab with theme picker and autostart"
 
 **Depends on:** Task 1
 **Files:**
+
 - Modify: `src/settings/tabs/BorderTab.tsx`
 - Create: `src/settings/__tests__/BorderTab.redesign.test.tsx`
 
@@ -755,7 +788,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: { load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }) },
+  default: {
+    load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
+  },
 }));
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
@@ -798,6 +833,7 @@ Expected: FAIL
 - [ ] **Step 3: Rewrite BorderTab with design system components**
 
 Rewrite `src/settings/tabs/BorderTab.tsx`:
+
 - Replace thickness text buttons with a 3-position `Slider` (min=0, max=2, step=1) mapped to `thin`/`medium`/`thick` enum values. Display labels under the slider. On change, emit `settings-changed` with `border_thickness` set to the enum string (not a pixel value — the backend's `thickness_to_px()` converts enum to pixels)
 - Replace position diagram with an interactive SVG screen outline (200×140px). Each edge (top/bottom/left/right) is a clickable rect that toggles. Active edges highlighted with `--color-primary`.
 - Replace palette text buttons with `Card` components showing 5 color swatches each (the phase colors)
@@ -820,6 +856,7 @@ git commit -m "feat: redesign Border tab with sliders and interactive position s
 
 **Depends on:** Task 1
 **Files:**
+
 - Modify: `src/settings/tabs/CalendarTab.tsx`
 - Modify: `src-tauri/src/calendar/google.rs`
 - Create: `src/settings/__tests__/CalendarTab.redesign.test.tsx`
@@ -833,7 +870,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: { load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }) },
+  default: {
+    load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
+  },
 }));
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
@@ -858,6 +897,7 @@ Run: `npx vitest run src/settings/__tests__/CalendarTab.redesign.test.tsx`
 - [ ] **Step 3: Update Google provider to support multi-calendar**
 
 Modify `src-tauri/src/calendar/google.rs`:
+
 - Add `fetch_calendar_list()` method that calls `GET https://www.googleapis.com/calendar/v3/users/me/calendarList`
 - Returns `Vec<CalendarInfo>` with `{ id, summary, color, selected }`
 - Modify `fetch_events()` to accept `calendar_ids: &[String]` parameter instead of hardcoded `"primary"`
@@ -867,6 +907,7 @@ Modify `src-tauri/src/calendar/google.rs`:
 - [ ] **Step 4: Write Rust test for multi-calendar**
 
 Add to google.rs tests:
+
 ```rust
 #[cfg(test)]
 mod tests {
@@ -893,6 +934,7 @@ Expected: PASS
 - [ ] **Step 6: Rewrite CalendarTab with design system + calendar toggles**
 
 Rewrite `src/settings/tabs/CalendarTab.tsx`:
+
 - Use `Card` components for each provider
 - After connection, call `invoke('get_calendar_list')` to get available calendars
 - Render each calendar with a `Toggle` to include/exclude
@@ -915,6 +957,7 @@ git commit -m "feat: redesign Calendar tab with multi-calendar support and ignor
 
 **Depends on:** Task 1
 **Files:**
+
 - Modify: `src/settings/tabs/TimerTab.tsx`
 - Move: `src/settings/components/WarningSettings.tsx` → `src/settings/tabs/AlertsTab.tsx`
 - Modify: `src/settings/App.tsx` (add Alerts to MAIN_TABS)
@@ -962,6 +1005,7 @@ app.listen("resume-timer", move |_event| {
 - [ ] **Step 2: Write Rust test for pause/resume**
 
 Add to lib.rs tests:
+
 ```rust
 #[test]
 fn test_timer_pause_sets_status() {
@@ -1001,7 +1045,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: { load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }) },
+  default: {
+    load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
+  },
 }));
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
@@ -1038,6 +1084,7 @@ Expected: FAIL
 - [ ] **Step 6: Rewrite TimerTab with design system**
 
 Rewrite `src/settings/tabs/TimerTab.tsx`:
+
 - Replace progress bar with `ProgressRing` component (size=96)
 - Add Pause/Resume button that emits `pause-timer`/`resume-timer` events
 - Use `Card` components for preset grid
@@ -1056,6 +1103,7 @@ Move `src/settings/components/WarningSettings.tsx` → `src/settings/tabs/Alerts
 - [ ] **Step 9: Wire Alerts tab into App.tsx**
 
 Modify `src/settings/App.tsx`:
+
 - Import `AlertsTab` from `./tabs/AlertsTab`
 - Add `'alerts'` to the `TabName` union type
 - Add `{ id: 'alerts', label: 'Alerts' }` to `MAIN_TABS` array (between Timer and About)
@@ -1070,7 +1118,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: { load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }) },
+  default: {
+    load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
+  },
 }));
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
@@ -1110,6 +1160,7 @@ git commit -m "feat: redesign Timer tab with pause/resume and add Alerts tab"
 
 **Depends on:** Task 1, Task 5 (both modify App.tsx — Task 5 adds Alerts tab first, Task 6 rebrands the shell and must preserve the Alerts tab addition)
 **Files:**
+
 - Modify: `src/settings/App.tsx` (sidebar rebrand, window shell)
 - Modify: `src/settings/tabs/AboutTab.tsx`
 - Modify: `src-tauri/src/lib.rs` (update settings window size from 600×500 to 680×560)
@@ -1124,7 +1175,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: { load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }) },
+  default: {
+    load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
+  },
 }));
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
@@ -1165,6 +1218,7 @@ Run: `npx vitest run src/settings/__tests__/App.redesign.test.tsx`
 - [ ] **Step 3: Rewrite App.tsx shell**
 
 Rewrite `src/settings/App.tsx`:
+
 - Sidebar: Morph SVG logo (green `#4A9B6E`) at top, nav items using design tokens, active tab uses `--color-primary` with low-opacity background, Ko-fi button at bottom
 - Add `useTheme()` hook at the app root
 - Window background uses `--color-surface-base`
@@ -1202,6 +1256,7 @@ git commit -m "feat: rebrand settings shell with design system, add Morph logo s
 
 **Depends on:** Task 1, Task 3 (Border tab restructured)
 **Files:**
+
 - Create: `src/settings/components/MiniPreview.tsx`
 - Create: `src/settings/components/TimelineScrubber.tsx`
 - Create: `src/settings/__tests__/MiniPreview.test.tsx`
@@ -1253,7 +1308,9 @@ import { render, screen } from '@testing-library/react';
 import { TimelineScrubber } from '../components/TimelineScrubber';
 
 vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: { load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }) },
+  default: {
+    load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
+  },
 }));
 
 describe('TimelineScrubber', () => {
@@ -1367,6 +1424,7 @@ export function MiniPreview({ borderState, position, thickness }: MiniPreviewPro
 Create `src/settings/components/TimelineScrubber.tsx`:
 
 A React component that:
+
 - Creates a synthetic 30-min `CalendarEvent` centered in a 2-hour window
 - Renders a horizontal `<canvas>` (full width × 48px) showing color-coded phase segments
 - Renders phase labels below the canvas as positioned text spans
@@ -1384,6 +1442,7 @@ Expected: PASS
 - [ ] **Step 7: Wire into BorderTab**
 
 Modify `src/settings/tabs/BorderTab.tsx`:
+
 - Import `MiniPreview` and `TimelineScrubber`
 - Add `MiniPreview` at the top of the tab, fed by current border settings
 - Add collapsible `TimelineScrubber` below it with "Preview timeline" toggle button
@@ -1409,6 +1468,7 @@ git commit -m "feat: add live border preview and timeline scrubber"
 
 **Depends on:** Task 1
 **Files:**
+
 - Modify: `src-tauri/src/tray.rs` (add popover window creation, tray icon color)
 - Modify: `src-tauri/src/lib.rs` (register new commands)
 - Create: `src/tray/index.html`
@@ -1420,6 +1480,7 @@ git commit -m "feat: add live border preview and timeline scrubber"
 - [ ] **Step 1: Add tray entry point to Vite config**
 
 Modify `vite.config.ts` — add to `rollupOptions.input`:
+
 ```typescript
 tray: path.resolve(__dirname, 'src/tray/index.html'),
 ```
@@ -1427,22 +1488,24 @@ tray: path.resolve(__dirname, 'src/tray/index.html'),
 - [ ] **Step 2: Create tray HTML entry point**
 
 Create `src/tray/index.html`:
+
 ```html
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Morph</title>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="./main.tsx"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Morph</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
 </html>
 ```
 
 Create `src/tray/styles.css`:
+
 ```css
 @import '../shared/design-tokens.css';
 
@@ -1450,11 +1513,15 @@ body {
   margin: 0;
   overflow: hidden;
   background: var(--color-surface-base);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 ```
 
 Create `src/tray/main.tsx`:
+
 ```tsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -1471,6 +1538,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(<TrayApp />);
 - [ ] **Step 3: Modify tray.rs for popover window creation**
 
 Modify `src-tauri/src/tray.rs`:
+
 - On tray icon click: get `TrayIconEvent::Click { position, .. }`
 - Check if tray popover window exists. If yes, toggle visibility. If no, create it:
   ```rust
@@ -1490,6 +1558,7 @@ Modify `src-tauri/src/tray.rs`:
 - [ ] **Step 4: Create tray icon PNGs**
 
 Create `src-tauri/icons/tray/` directory with 6 template PNGs (22×22 for macOS, 16×16 for Windows):
+
 - `tray-free.png` — green tint
 - `tray-warning.png` — amber tint
 - `tray-session.png` — green/neutral
@@ -1515,6 +1584,7 @@ git commit -m "feat: add tray popover window management and phase-colored tray i
 
 **Depends on:** Task 1, Task 8 (window exists), Task 5 (for pause/timer quick actions)
 **Files:**
+
 - Create: `src/tray/App.tsx`
 - Create: `src/tray/components/StatusHeader.tsx`
 - Create: `src/tray/components/UpNext.tsx`
@@ -1532,7 +1602,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('@tauri-apps/plugin-sql', () => ({
-  default: { load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }) },
+  default: {
+    load: vi.fn().mockResolvedValue({ select: vi.fn().mockResolvedValue([]), execute: vi.fn() }),
+  },
 }));
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(() => {}),
@@ -1582,34 +1654,40 @@ Expected: FAIL
 - [ ] **Step 3: Implement tray popover components**
 
 Create `src/tray/components/StatusHeader.tsx`:
+
 - Listens to `border-state-update` event
 - Computes status text from calendar events ("Free — X min to next" / "Meeting in X min" / "In Session: ..." / "Overtime +X min")
 - Background tint using current phase color at 10% opacity
 - Uses `Badge` and design tokens
 
 Create `src/tray/components/UpNext.tsx`:
+
 - Listens to `calendar-events-update` event
 - Shows next 3 events today (filtered by `ignored_calendar_ids`)
 - Each row: colored dot (calendar color), time (HH:MM), truncated title
 - Shows "No more events today" when empty
 
 Create `src/tray/components/QuickActions.tsx`:
+
 - Three `IconButton` actions: Pause, Timer, Sync
 - Pause: flyout with `Chip` duration pickers, emits `pause-border` event
 - Timer: flyout with preset `Chip`s, emits `start-timer` event
 - Sync: emits `force-sync` event, shows spinner during sync
 
 Create `src/tray/components/ActiveTimer.tsx`:
+
 - Conditional render (only when timer running)
 - Compact `ProgressRing` (48px) + countdown text
 - Pause/Resume + Stop buttons
 - Preset name label
 
 Create `src/tray/components/Footer.tsx`:
+
 - Settings gear `IconButton` — opens settings window via `invoke`, closes popover
 - Connected provider dots using `Badge`
 
 Create `src/tray/App.tsx`:
+
 - Composes all components in the layout from the spec
 - Sets up `onFocusChanged` dismiss: `getCurrentWindow().onFocusChanged(({ payload: focused }) => { if (!focused) getCurrentWindow().close(); })`
 - Uses `useTheme()` hook
@@ -1634,6 +1712,7 @@ git commit -m "feat: implement tray popover UI with status, events, quick action
 
 **Depends on:** Task 1
 **Files:**
+
 - Modify: `src-tauri/src/window_manager/windows.rs`
 - Modify: `src-tauri/tauri.conf.json` (fix hardcoded geometry)
 - Delete: `src-tauri/src/tick.rs`
@@ -1752,6 +1831,7 @@ Delete `src-tauri/src/tick.rs` and remove `pub mod tick;` from `src-tauri/src/li
 - [ ] **Step 6: Update .gitignore**
 
 Add to `.gitignore`:
+
 ```
 .superpowers/
 ```
@@ -1780,20 +1860,21 @@ Expected: All pass
 
 ## Agent Assignment Summary
 
-| Agent | Task | Slice | Dependencies |
-|-------|------|-------|-------------|
-| 1 | Design System & Theming | 1 | None (runs first) |
-| 2 | General Tab + Autostart | 2 | Task 1 |
-| 3 | Border Tab Redesign | 2 | Task 1 |
-| 4 | Calendar Tab + Multi-Calendar | 2 | Task 1 |
-| 5 | Timer Tab + Pause/Resume + Alerts | 2 | Task 1 |
-| 6 | Settings Shell + About + Sidebar | 2 | Task 1, Task 5 |
-| 7 | Live Preview + Timeline Scrubber | 3 | Task 1, Task 3 |
-| 8 | Tray Popover Backend | 4 | Task 1 |
-| 9 | Tray Popover UI | 4 | Task 1, Task 8, Task 5 |
-| 10 | Platform Parity + Cleanup | 5 | Task 1 |
+| Agent | Task                              | Slice | Dependencies           |
+| ----- | --------------------------------- | ----- | ---------------------- |
+| 1     | Design System & Theming           | 1     | None (runs first)      |
+| 2     | General Tab + Autostart           | 2     | Task 1                 |
+| 3     | Border Tab Redesign               | 2     | Task 1                 |
+| 4     | Calendar Tab + Multi-Calendar     | 2     | Task 1                 |
+| 5     | Timer Tab + Pause/Resume + Alerts | 2     | Task 1                 |
+| 6     | Settings Shell + About + Sidebar  | 2     | Task 1, Task 5         |
+| 7     | Live Preview + Timeline Scrubber  | 3     | Task 1, Task 3         |
+| 8     | Tray Popover Backend              | 4     | Task 1                 |
+| 9     | Tray Popover UI                   | 4     | Task 1, Task 8, Task 5 |
+| 10    | Platform Parity + Cleanup         | 5     | Task 1                 |
 
 **Execution order:**
+
 1. Agent 1 runs alone (Task 1 — design system)
 2. Agents 2-5, 8, 10 run in parallel (all depend only on Task 1)
 3. Agent 6 runs after Agent 5 completes (both modify App.tsx)

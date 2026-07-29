@@ -41,7 +41,10 @@ export default function AboutTab() {
         >
           Support Morph
         </p>
-        <p className="mb-3" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+        <p
+          className="mb-3"
+          style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}
+        >
           Morph is free and open source. If it helps you, consider supporting development.
         </p>
         <button
