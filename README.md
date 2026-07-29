@@ -157,13 +157,16 @@ Windows Defender SmartScreen may show a warning for unrecognized apps. To procee
 src-tauri/          Rust backend
   src/
     calendar/       Google, Microsoft, Apple providers + polling
+    border_state.rs Border state shared with the overlay windows
     settings.rs     SQLite-backed user preferences
-    tray.rs         System tray with status + timer presets
-    tick.rs         1-second emitter driving the overlay
-    lib.rs          App setup, NSWindow config, Tauri commands
+    tray.rs         System tray with status icons + popover window
+    window_manager/ Overlay window geometry and platform setup
+    lib.rs          App setup, tick emitter, NSWindow config, commands
 src/
   overlay/          Vanilla TS border windows (no React)
   settings/         React settings UI with tabbed interface
+  tray/             React tray popover (status, events, quick actions)
+  shared/           Design tokens, shared components and hooks
   lib/
     color-engine/   Pure TS: calendar events → border state
     timer/          Session timer with presets
