@@ -126,9 +126,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      # Tauri CLI is installed as a Cargo binary; the official action handles this.
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2"
-
+      # @tauri-apps/cli is a devDependency, so npm ci above already installed a
+      # lockfile-pinned CLI — no need to rebuild it from source with cargo.
+      # --no-bundle keeps this a compile check: bundling installers is the
+      # Release workflow's job, and skipping it saves several minutes per PR.
       - name: Tauri build (debug)
-        run: cargo tauri build --debug
+        run: npx tauri build --debug --no-bundle
