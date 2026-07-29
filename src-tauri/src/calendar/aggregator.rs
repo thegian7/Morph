@@ -110,7 +110,7 @@ fn deduplicate_events(mut events: Vec<CalendarEvent>) -> Vec<CalendarEvent> {
         seen.insert(key)
     });
 
-    events.sort_by(|a, b| a.start_time.cmp(&b.start_time));
+    events.sort_by_key(|e| e.start_time);
     events
 }
 

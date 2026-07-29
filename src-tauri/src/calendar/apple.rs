@@ -146,7 +146,7 @@ impl CalendarProvider for AppleCalendarProvider {
             .filter_map(|ek_event| map_ek_event(&ek_event, &provider_id))
             .collect();
 
-        events.sort_by(|a, b| a.start_time.cmp(&b.start_time));
+        events.sort_by_key(|e| e.start_time);
         Ok(events)
     }
 
