@@ -1,8 +1,10 @@
 name: CI
 
+# push is limited to main so PR branches don't run every job twice
+# (once for push, once for pull_request).
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -57,6 +59,14 @@ jobs:
 
       - name: Rust tests
         working-directory: src-tauri
+        env:
+          # Windows: cargo test binaries get no manifest, so the loader binds
+          # comctl32 v5, which lacks the v6 entry points Tauri's menu/tray
+          # deps import — the process aborts with STATUS_ENTRYPOINT_NOT_FOUND
+          # before any test runs (tauri-apps/tauri#13419). Delay-loading
+          # comctl32 defers symbol resolution until first call, which unit
+          # tests never make.
+          RUSTFLAGS: ${{ runner.os == 'Windows' && '-Clink-arg=/DELAYLOAD:comctl32.dll -Clink-arg=delayimp.lib' || '' }}
         run: cargo test
 
       # --- Node.js toolchain ---
