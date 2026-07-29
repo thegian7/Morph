@@ -172,12 +172,10 @@ fn toggle_popover(app: &AppHandle, position: tauri::PhysicalPosition<f64>) {
             }
             Ok(false) => {
                 // Reposition near tray icon before showing
-                let _ = window.set_position(tauri::Position::Physical(
-                    tauri::PhysicalPosition {
-                        x: (position.x as i32).saturating_sub(160),
-                        y: position.y as i32,
-                    },
-                ));
+                let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                    x: (position.x as i32).saturating_sub(160),
+                    y: position.y as i32,
+                }));
                 let _ = window.show();
                 let _ = window.set_focus();
             }
@@ -196,10 +194,7 @@ fn toggle_popover(app: &AppHandle, position: tauri::PhysicalPosition<f64>) {
     )
     .title("")
     .inner_size(320.0, 400.0)
-    .position(
-        (position.x - 160.0).max(0.0),
-        position.y,
-    )
+    .position((position.x - 160.0).max(0.0), position.y)
     .decorations(false)
     .skip_taskbar(true)
     .transparent(true)
@@ -277,8 +272,7 @@ pub fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // Listen for border-state-update events to update the tray icon color
     let handle = app.handle().clone();
     app.listen("border-state-update", move |event| {
-        if let Ok(state) =
-            serde_json::from_str::<crate::border_state::BorderState>(event.payload())
+        if let Ok(state) = serde_json::from_str::<crate::border_state::BorderState>(event.payload())
         {
             if let Some(icon) = phase_to_icon(&state.phase) {
                 let tray_state = handle.state::<TrayState>();
