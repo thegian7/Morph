@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
 import { enable, disable } from '@tauri-apps/plugin-autostart';
 import { useSettings } from '../hooks/useSettings';
-import { Toggle, Card, SectionHeader, Chip } from '@/shared/components';
+import { Toggle, Card, SectionHeader, Chip, Button } from '@/shared/components';
 import { useTheme, type ThemePreference } from '@/shared/hooks/useTheme';
 
 interface MonitorInfo {
@@ -94,8 +94,8 @@ export function GeneralTab() {
               className="flex-1 text-center"
             >
               <div
-                className="w-8 h-8 rounded-full mx-auto mb-2 border border-gray-200"
-                style={{ background: opt.swatch }}
+                className="w-8 h-8 rounded-full mx-auto mb-2"
+                style={{ background: opt.swatch, border: '1px solid var(--color-border)' }}
               />
               <span
                 style={{
@@ -180,17 +180,9 @@ export function GeneralTab() {
                   ? `Paused for ${pauseState.minutes} min`
                   : 'Paused until next event'}
               </span>
-              <button
-                onClick={handleResume}
-                className="px-3 py-1.5 rounded-lg font-medium cursor-pointer"
-                style={{
-                  fontSize: 'var(--text-sm)',
-                  backgroundColor: 'var(--color-primary)',
-                  color: '#FFFFFF',
-                }}
-              >
+              <Button variant="primary" onClick={handleResume}>
                 Resume
-              </button>
+              </Button>
             </div>
           </Card>
         ) : (
