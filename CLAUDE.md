@@ -44,5 +44,7 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 
 ## Key Events
 
-- `border-state-update`: Emitted every 1s by tick emitter, consumed by overlay JS
+- `border-state-update`: Broadcast by the border-top overlay window (the leader) whenever its computed state changes; consumed by the tray icon (Rust) and tray popover. The overlay windows each run the color engine locally at 1 Hz.
 - `calendar-events-update`: Emitted by calendar poller when events change
+- `settings-changed`: Emitted by the `set_setting` command with `{ key, value }`; consumed by the overlay, theme hook, and window manager
+- `border-paused`: Emitted by `pause_border` with `{ minutes }` — positive = pause duration, `0` = resume, negative = pause until the next calendar event starts

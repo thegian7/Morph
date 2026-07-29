@@ -33,9 +33,13 @@ export function useTheme() {
   }, []);
 
   useEffect(() => {
-    const unlisten = listen<Record<string, string>>('settings-changed', (event) => {
-      if (event.payload.theme_preference) {
-        setPreference(event.payload.theme_preference as ThemePreference);
+    const unlisten = listen<{ key: string; value: string }>('settings-changed', (event) => {
+      const { key, value } = event.payload;
+      if (
+        key === 'theme_preference' &&
+        (value === 'system' || value === 'light' || value === 'dark')
+      ) {
+        setPreference(value);
       }
     });
     return () => {

@@ -266,17 +266,19 @@ async fn force_sync(app: tauri::AppHandle) -> Result<(), String> {
 /// Pause the border overlay for a given number of minutes.
 /// - `duration_minutes > 0`: pause for that many minutes
 /// - `duration_minutes == 0`: resume immediately (unpause)
+/// - `duration_minutes < 0`: pause until the next calendar event begins.
+///   The expiry is event-driven, so the overlay owns it; `paused_until`
+///   stays `None` here.
 #[tauri::command]
 fn pause_border(app: tauri::AppHandle, duration_minutes: i32) -> Result<(), String> {
     let managed = app.state::<Mutex<PauseState>>();
     let mut state = managed.lock().map_err(|e| e.to_string())?;
 
-    if duration_minutes <= 0 {
-        // Resume: clear the pause
-        state.paused_until = None;
-    } else {
+    if duration_minutes > 0 {
         state.paused_until =
             Some(chrono::Utc::now() + chrono::Duration::minutes(duration_minutes as i64));
+    } else {
+        state.paused_until = None;
     }
 
     // Emit the minutes value so the overlay can compute expiry locally.
