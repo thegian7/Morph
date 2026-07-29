@@ -27,7 +27,11 @@ export function Button({ variant = 'primary', children, className = '', ...props
   return (
     <button
       className={`px-4 py-2 rounded-lg font-medium cursor-pointer ${className}`}
-      style={{ fontSize: 'var(--text-sm)', transition: 'var(--transition-fast)', ...styles[variant] }}
+      style={{
+        fontSize: 'var(--text-sm)',
+        transition: 'var(--transition-fast)',
+        ...styles[variant],
+      }}
       {...props}
     >
       {children}

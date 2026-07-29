@@ -116,16 +116,13 @@ export function TimelineScrubber({ settings, onBorderStateChange }: TimelineScru
     onBorderStateChange(state);
   }, [playheadPos, settings, points, onBorderStateChange]);
 
-  const updatePlayhead = useCallback(
-    (clientX: number) => {
-      const container = containerRef.current;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
-      const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      setPlayheadPos(x);
-    },
-    [],
-  );
+  const updatePlayhead = useCallback((clientX: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    setPlayheadPos(x);
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {

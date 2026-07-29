@@ -4,5 +4,8 @@ body {
   margin: 0;
   overflow: hidden;
   background: var(--color-surface-base);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }

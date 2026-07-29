@@ -16,7 +16,9 @@ export function Footer() {
     const unlisten = listen<ProviderStatus>('provider-status-update', (event) => {
       setProviders(event.payload);
     });
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, []);
 
   const handleOpenSettings = () => {

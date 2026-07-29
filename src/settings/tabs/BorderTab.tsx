@@ -186,8 +186,14 @@ export function BorderTab() {
   const palette = getSetting('color_palette') ?? 'ambient';
   const intensity = getSetting('color_intensity') ?? 'normal';
 
-  const thicknessIndex = Math.max(0, THICKNESS_ENUM.indexOf(thickness as (typeof THICKNESS_ENUM)[number]));
-  const intensityIndex = Math.max(0, INTENSITY_ENUM.indexOf(intensity as (typeof INTENSITY_ENUM)[number]));
+  const thicknessIndex = Math.max(
+    0,
+    THICKNESS_ENUM.indexOf(thickness as (typeof THICKNESS_ENUM)[number]),
+  );
+  const intensityIndex = Math.max(
+    0,
+    INTENSITY_ENUM.indexOf(intensity as (typeof INTENSITY_ENUM)[number]),
+  );
 
   const activeEdges = edgesFromPosition(position);
   const previewPosition = {
@@ -245,7 +251,10 @@ export function BorderTab() {
         )}
       </div>
 
-      <SectionHeader title="Border Settings" description="Customize how the ambient border appears on your screen." />
+      <SectionHeader
+        title="Border Settings"
+        description="Customize how the ambient border appears on your screen."
+      />
 
       {/* Thickness */}
       <section>
@@ -257,7 +266,13 @@ export function BorderTab() {
           value={thicknessIndex}
           onChange={(val) => setSetting('border_thickness', THICKNESS_ENUM[val])}
         />
-        <div className="flex justify-between mt-1" style={{ fontSize: 'var(--text-xs, 0.75rem)', color: 'var(--color-text-secondary, #6b7280)' }}>
+        <div
+          className="flex justify-between mt-1"
+          style={{
+            fontSize: 'var(--text-xs, 0.75rem)',
+            color: 'var(--color-text-secondary, #6b7280)',
+          }}
+        >
           {THICKNESS_LABELS.map((label) => (
             <span key={label}>{label}</span>
           ))}
@@ -267,7 +282,10 @@ export function BorderTab() {
       {/* Position */}
       <section>
         <SectionHeader title="Position" />
-        <PositionSelector position={position} onChange={(pos) => setSetting('border_position', pos)} />
+        <PositionSelector
+          position={position}
+          onChange={(pos) => setSetting('border_position', pos)}
+        />
       </section>
 
       {/* Color Palette */}
@@ -290,10 +308,22 @@ export function BorderTab() {
                   />
                 ))}
               </div>
-              <span style={{ fontSize: 'var(--text-sm, 0.875rem)', fontWeight: 600, color: 'var(--color-text, #111827)' }}>
+              <span
+                style={{
+                  fontSize: 'var(--text-sm, 0.875rem)',
+                  fontWeight: 600,
+                  color: 'var(--color-text, #111827)',
+                }}
+              >
                 {opt.label}
               </span>
-              <p style={{ fontSize: 'var(--text-xs, 0.75rem)', color: 'var(--color-text-secondary, #6b7280)', marginTop: '2px' }}>
+              <p
+                style={{
+                  fontSize: 'var(--text-xs, 0.75rem)',
+                  color: 'var(--color-text-secondary, #6b7280)',
+                  marginTop: '2px',
+                }}
+              >
                 {opt.description}
               </p>
             </Card>
@@ -311,7 +341,13 @@ export function BorderTab() {
           value={intensityIndex}
           onChange={(val) => setSetting('color_intensity', INTENSITY_ENUM[val])}
         />
-        <div className="flex justify-between mt-1" style={{ fontSize: 'var(--text-xs, 0.75rem)', color: 'var(--color-text-secondary, #6b7280)' }}>
+        <div
+          className="flex justify-between mt-1"
+          style={{
+            fontSize: 'var(--text-xs, 0.75rem)',
+            color: 'var(--color-text-secondary, #6b7280)',
+          }}
+        >
           {INTENSITY_LABELS.map((label) => (
             <span key={label}>{label}</span>
           ))}

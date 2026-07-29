@@ -43,16 +43,19 @@ Slice 1 must complete first. Slices 2 and 5 can begin in parallel after Slice 1.
 CSS custom properties on `:root` (light) and `[data-theme="dark"]`:
 
 **Surface colors:**
+
 - Light: warm whites (`#FAFAF9`) and grays (`#F5F5F4`, `#E7E5E4`)
 - Dark: landing page navy (`#0f1117` base, `#1a1d2e` elevated, `#252836` cards)
 
 **Brand accents (same in both themes):**
+
 - Morph green: `#4A9B6E` — primary actions, "connected" states, free-time indicators
 - Morph amber: `#D4A843` — warnings, timer accents
 - Morph purple: `#8B6AAE` — overtime, premium feel accents
 - Morph orange: `#D4864A` — urgent warnings
 
 **Semantic tokens:**
+
 - `--color-primary` → Morph green
 - `--color-surface-base`, `--color-surface-raised`, `--color-surface-overlay`
 - `--color-border`, `--color-border-subtle`
@@ -61,6 +64,7 @@ CSS custom properties on `:root` (light) and `[data-theme="dark"]`:
 - `--color-success` → Morph green
 
 **Typography scale** (system-ui font stack):
+
 - `--text-xs`: 11px — labels, metadata
 - `--text-sm`: 13px — secondary text, descriptions
 - `--text-base`: 14px — body text
@@ -96,6 +100,7 @@ This ensures Tailwind utility classes like `dark:bg-gray-900` respect the `data-
 Location: `src/shared/components/`
 
 Primitives extracted from settings and reused in tray popover:
+
 - `Toggle` — branded switch (green when on)
 - `Card` — elevated surface with border, hover state
 - `Button` — primary (green fill), secondary (outline), ghost (text-only)
@@ -120,14 +125,15 @@ Each component uses semantic design tokens. Theming is automatic.
 
 ### General Tab
 
-| Setting | Implementation |
-|---------|---------------|
-| Theme | Three-option picker (System/Light/Dark) with mini preview swatches showing surface + accent colors |
-| Launch at login | Toggle — wired to `tauri-plugin-autostart` (see Installation below) |
-| Display selector | Card buttons with monitor name labels (only shown with 2+ monitors) |
-| Pause border | Duration chips (5/15/30/60 min, Until next event) with keyboard shortcut hint |
+| Setting          | Implementation                                                                                     |
+| ---------------- | -------------------------------------------------------------------------------------------------- |
+| Theme            | Three-option picker (System/Light/Dark) with mini preview swatches showing surface + accent colors |
+| Launch at login  | Toggle — wired to `tauri-plugin-autostart` (see Installation below)                                |
+| Display selector | Card buttons with monitor name labels (only shown with 2+ monitors)                                |
+| Pause border     | Duration chips (5/15/30/60 min, Until next event) with keyboard shortcut hint                      |
 
 **`tauri-plugin-autostart` installation:**
+
 1. Add `tauri-plugin-autostart` to `src-tauri/Cargo.toml` dependencies
 2. Register plugin in `lib.rs`: `.plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))`
 3. Add `autostart:allow-enable`, `autostart:allow-disable`, `autostart:allow-is-enabled` to capabilities in `tauri.conf.json`
@@ -135,12 +141,12 @@ Each component uses semantic design tokens. Theming is automatic.
 
 ### Border Tab
 
-| Setting | Current | New |
-|---------|---------|-----|
-| Thickness | Text buttons (Thin/Medium/Thick) | Slider with live border update |
-| Position | Tiny 8×6 diagram | Interactive screen outline (larger, click edges to toggle) |
-| Color palette | Text buttons | Color swatch cards showing the full progression |
-| Intensity | Text buttons (Subtle/Normal/Vivid) | Slider with live opacity change |
+| Setting       | Current                            | New                                                        |
+| ------------- | ---------------------------------- | ---------------------------------------------------------- |
+| Thickness     | Text buttons (Thin/Medium/Thick)   | Slider with live border update                             |
+| Position      | Tiny 8×6 diagram                   | Interactive screen outline (larger, click edges to toggle) |
+| Color palette | Text buttons                       | Color swatch cards showing the full progression            |
+| Intensity     | Text buttons (Subtle/Normal/Vivid) | Slider with live opacity change                            |
 
 The mini preview and timeline scrubber (Slice 3) live at the top of this tab.
 
@@ -355,34 +361,34 @@ Uses `tauri-plugin-autostart` (see installation steps in Slice 2, General Tab se
 
 ## Decisions Log
 
-| # | Decision | Chosen | Rationale |
-|---|----------|--------|-----------|
-| 1 | Improvement scope | Full glow-up (finish + reimagine) | User chose "coming out of beta" push |
-| 2 | Settings personality | Adaptive (light/dark) | Follows system theme, feels native on both platforms |
-| 3 | Live preview | Yes, with timeline scrubber | Key differentiator, premium feel, makes the ambient concept instantly tangible |
-| 4 | Tray experience | Rich popover | Tray IS the app for an ambient tool — answers "what's happening with my time?" |
-| 5 | Platform priority | Both macOS and Windows equally | Double the audience |
-| 6 | Implementation strategy | Vertical slices | Sustained momentum, natural parallelization for 10-agent team |
-| 7 | Theme picker in General tab | Mini preview swatches | More visual than a dropdown |
-| 8 | Border position control | Interactive screen outline | More intuitive than radio buttons |
-| 9 | Custom color palette | Skip for v1 | YAGNI — two palettes cover accessibility needs |
-| 10 | Timer progress indicator | Circular ring (SVG) | More compact and visually distinct than flat bar |
-| 11 | Custom timer presets | Include (JSON in settings table) | Simple to build, high user value, no migration needed |
-| 12 | Warning settings tab name | "Alerts" | Broader, more user-friendly |
-| 13 | Per-threshold customization | Skip | Keep it simple — just on/off toggles |
-| 14 | Timeline scrubber window | 2-hour synthetic meeting | Clean demo, works without calendar connected |
-| 15 | Mini preview renderer | Canvas element | Better performance for animation |
-| 16 | Tray popover: event click action | None (v1) | Keep scope tight |
-| 17 | Tray popover implementation | Tauri WebviewWindow (not NSPopover) | Cross-platform consistency, full style control |
-| 18 | Tray icon | Pre-rendered PNG set | Simpler and reliable vs runtime generation |
-| 19 | Launch-at-login | tauri-plugin-autostart | Handles both platforms, maintained by Tauri team |
-| 20 | Theme detection | CSS media query + data-theme attribute | Simpler, works in both webviews natively |
-| 21 | Custom preset storage | JSON in existing settings KV table | Avoids new migration, consistent with other array settings |
-| 22 | Timer pause/resume | New Rust event handlers (not TS-only) | Must propagate to overlay, not just settings UI |
-| 23 | Tray popover positioning | TrayIconEvent.position from callback | First-class Tauri 2 API, no platform hacks needed |
-| 24 | Tray popover dismiss | JS onFocusChanged + NSFloatingWindowLevel on macOS | Reliable cross-platform, uses existing deferred NSWindow pattern |
-| 25 | Sync action pattern | Emit `force-sync` event | Consistent with existing Settings UI pattern |
-| 26 | WarningSettings location | Move to tabs/ directory | Match existing tab file structure |
+| #   | Decision                         | Chosen                                             | Rationale                                                                      |
+| --- | -------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 1   | Improvement scope                | Full glow-up (finish + reimagine)                  | User chose "coming out of beta" push                                           |
+| 2   | Settings personality             | Adaptive (light/dark)                              | Follows system theme, feels native on both platforms                           |
+| 3   | Live preview                     | Yes, with timeline scrubber                        | Key differentiator, premium feel, makes the ambient concept instantly tangible |
+| 4   | Tray experience                  | Rich popover                                       | Tray IS the app for an ambient tool — answers "what's happening with my time?" |
+| 5   | Platform priority                | Both macOS and Windows equally                     | Double the audience                                                            |
+| 6   | Implementation strategy          | Vertical slices                                    | Sustained momentum, natural parallelization for 10-agent team                  |
+| 7   | Theme picker in General tab      | Mini preview swatches                              | More visual than a dropdown                                                    |
+| 8   | Border position control          | Interactive screen outline                         | More intuitive than radio buttons                                              |
+| 9   | Custom color palette             | Skip for v1                                        | YAGNI — two palettes cover accessibility needs                                 |
+| 10  | Timer progress indicator         | Circular ring (SVG)                                | More compact and visually distinct than flat bar                               |
+| 11  | Custom timer presets             | Include (JSON in settings table)                   | Simple to build, high user value, no migration needed                          |
+| 12  | Warning settings tab name        | "Alerts"                                           | Broader, more user-friendly                                                    |
+| 13  | Per-threshold customization      | Skip                                               | Keep it simple — just on/off toggles                                           |
+| 14  | Timeline scrubber window         | 2-hour synthetic meeting                           | Clean demo, works without calendar connected                                   |
+| 15  | Mini preview renderer            | Canvas element                                     | Better performance for animation                                               |
+| 16  | Tray popover: event click action | None (v1)                                          | Keep scope tight                                                               |
+| 17  | Tray popover implementation      | Tauri WebviewWindow (not NSPopover)                | Cross-platform consistency, full style control                                 |
+| 18  | Tray icon                        | Pre-rendered PNG set                               | Simpler and reliable vs runtime generation                                     |
+| 19  | Launch-at-login                  | tauri-plugin-autostart                             | Handles both platforms, maintained by Tauri team                               |
+| 20  | Theme detection                  | CSS media query + data-theme attribute             | Simpler, works in both webviews natively                                       |
+| 21  | Custom preset storage            | JSON in existing settings KV table                 | Avoids new migration, consistent with other array settings                     |
+| 22  | Timer pause/resume               | New Rust event handlers (not TS-only)              | Must propagate to overlay, not just settings UI                                |
+| 23  | Tray popover positioning         | TrayIconEvent.position from callback               | First-class Tauri 2 API, no platform hacks needed                              |
+| 24  | Tray popover dismiss             | JS onFocusChanged + NSFloatingWindowLevel on macOS | Reliable cross-platform, uses existing deferred NSWindow pattern               |
+| 25  | Sync action pattern              | Emit `force-sync` event                            | Consistent with existing Settings UI pattern                                   |
+| 26  | WarningSettings location         | Move to tabs/ directory                            | Match existing tab file structure                                              |
 
 ## Out of Scope (v1)
 

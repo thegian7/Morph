@@ -21,7 +21,9 @@ export function StatusHeader() {
     const unlisten = listen<BorderState>('border-state-update', (event) => {
       setBorderState(event.payload);
     });
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, []);
 
   const phaseLabels: Record<string, string> = {
@@ -52,7 +54,13 @@ export function StatusHeader() {
         <Badge color={borderState.color || 'var(--color-text-muted)'} text={borderState.phase} />
       </div>
       {borderState.status_text && (
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginTop: 'var(--space-1)' }}>
+        <p
+          style={{
+            fontSize: 'var(--text-sm)',
+            color: 'var(--color-text-secondary)',
+            marginTop: 'var(--space-1)',
+          }}
+        >
           {borderState.status_text}
         </p>
       )}

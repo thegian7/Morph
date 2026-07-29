@@ -30,7 +30,9 @@ export function UpNext() {
 
       setEvents(upcoming);
     });
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, []);
 
   return (

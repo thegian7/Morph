@@ -12,7 +12,13 @@ export function SectionHeader({ title, description }: SectionHeaderProps) {
         {title}
       </h3>
       {description && (
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginTop: 'var(--space-1)' }}>
+        <p
+          style={{
+            fontSize: 'var(--text-sm)',
+            color: 'var(--color-text-secondary)',
+            marginTop: 'var(--space-1)',
+          }}
+        >
           {description}
         </p>
       )}
