@@ -258,6 +258,25 @@ fn overlay_layout(f: Rect, t: f64) -> Layout {
     }
 }
 
+/// Adjust a `Fit` layout for an opaque menu bar (Reduce Transparency, or the
+/// "show menu bar background" option): a tint *behind* the bar would be
+/// invisible, so draw a hairline along the bottom of the menu-bar band,
+/// above the bar, instead. Still entirely inside reserved space.
+pub fn for_opaque_menu_bar(layout: Layout, frame: Rect, visible: Rect, thickness: f64) -> Layout {
+    let band = frame.max_y() - visible.max_y();
+    if band < MIN_BAND {
+        return layout; // auto-hidden menu bar: the top hairline is already used
+    }
+    let h = AUTOHIDE_MENU_FALLBACK.min(thickness).min(band);
+    Layout {
+        top: Some(Strip {
+            rect: Rect::new(frame.x, visible.max_y(), frame.w, h),
+            level: LEVEL_STATUS,
+        }),
+        ..layout
+    }
+}
+
 /// Whether any of `windows` covers the whole `display` — i.e. an app is in
 /// native fullscreen (or borderless "windowed fullscreen") on it. Both in the
 /// same coordinate system.
@@ -666,5 +685,37 @@ mod tests {
         let base = compute_layout(BorderMode::Fit, FRAME, VIS_DOCK_BOTTOM, 2.0, Edges::ALL);
         let l = for_fullscreen(base, BorderMode::Fit, FRAME, 2.0);
         assert_eq!(l.top.unwrap().rect.h, 2.0);
+    }
+
+    #[test]
+    fn opaque_menu_bar_moves_the_tint_to_an_underline_above_the_bar() {
+        let base = compute_layout(BorderMode::Fit, FRAME, VIS_DOCK_BOTTOM, 16.0, Edges::ALL);
+        let l = for_opaque_menu_bar(base, FRAME, VIS_DOCK_BOTTOM, 16.0);
+        let top = l.top.unwrap();
+        approx(
+            top.rect,
+            Rect::new(0.0, 945.0, 1512.0, AUTOHIDE_MENU_FALLBACK),
+        );
+        assert_eq!(
+            top.level, LEVEL_STATUS,
+            "must draw above an opaque menu bar"
+        );
+        assert_eq!(l.bottom, base.bottom, "Dock strip unchanged");
+    }
+
+    #[test]
+    fn opaque_menu_bar_underline_stays_inside_the_band() {
+        let vis = Rect::new(0.0, 64.0, 1512.0, 916.0); // 2pt band
+        let base = compute_layout(BorderMode::Fit, FRAME, vis, 16.0, Edges::ALL);
+        let top = for_opaque_menu_bar(base, FRAME, vis, 16.0).top.unwrap();
+        assert!(top.rect.max_y() <= FRAME.max_y() + 0.001);
+        assert!(top.rect.y >= vis.max_y() - 0.001);
+    }
+
+    #[test]
+    fn opaque_menu_bar_with_autohidden_bar_keeps_the_top_hairline() {
+        let vis = Rect::new(0.0, 64.0, 1512.0, 918.0);
+        let base = compute_layout(BorderMode::Fit, FRAME, vis, 16.0, Edges::ALL);
+        assert_eq!(for_opaque_menu_bar(base, FRAME, vis, 16.0), base);
     }
 }

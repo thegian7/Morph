@@ -13,6 +13,7 @@ import type {
 import { DEFAULT_USER_SETTINGS } from '@/lib/color-engine/types';
 import { getTimerAsEvent } from '@/lib/timer/index';
 import type { TimerState } from '@/lib/timer/types';
+import { applyDisplayPrefs, DEFAULT_DISPLAY_PREFS, type DisplayPrefs } from './display-prefs';
 
 /**
  * Payload shape for the border state.
@@ -90,6 +91,8 @@ let timerState: TimerState = {
   elapsedBeforePause: 0,
 };
 let userSettings: UserSettings = { ...DEFAULT_USER_SETTINGS };
+/** System accessibility / appearance preferences, pushed from Rust. */
+let displayPrefs: DisplayPrefs = { ...DEFAULT_DISPLAY_PREFS };
 let borderPausedUntil: number | null = null;
 /** Set when the user picked "pause until next event": resume when an event
  *  that starts after this timestamp begins. */
@@ -267,7 +270,7 @@ function computeAndApply(
 
   // Hide this window if it's not active for the current position setting
   const display = isWindowActiveForPosition(windowLabel, userSettings.borderPosition)
-    ? globalState
+    ? applyDisplayPrefs(globalState, displayPrefs)
     : HIDDEN_STATE;
 
   if (stateUnchanged(lastState, display)) return;
@@ -303,6 +306,18 @@ async function setup() {
   await listen<{ key: string; value: string }>('settings-changed', (event) => {
     applySettingToState(event.payload.key, event.payload.value);
     // Force re-evaluation on next tick (settings may change visible output)
+    lastState = null;
+  });
+
+  // System display preferences (Reduce Motion / Transparency, Increase
+  // Contrast, appearance). Fetch once, then follow changes pushed by Rust.
+  try {
+    displayPrefs = await invoke<DisplayPrefs>('get_display_prefs');
+  } catch (e) {
+    console.warn('[overlay] Failed to load display prefs:', e);
+  }
+  await listen<DisplayPrefs>('display-prefs-changed', (event) => {
+    displayPrefs = event.payload;
     lastState = null;
   });
 

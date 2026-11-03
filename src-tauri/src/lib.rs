@@ -468,6 +468,7 @@ pub fn run() {
             get_available_monitors,
             accessibility_status,
             request_accessibility,
+            get_display_prefs,
         ])
         .setup(|app| {
             // Menu-bar (agent) app: no Dock icon, and its windows may join
@@ -858,6 +859,22 @@ async fn relayout_borders(handle: &tauri::AppHandle) {
     let _ = handle.run_on_main_thread(move || {
         window_manager::macos::configure_and_apply(&h, &config);
     });
+}
+
+/// Current system display preferences (Reduce Motion, Reduce Transparency,
+/// Increase Contrast, dark appearance). Sync command: runs on the main thread.
+#[tauri::command]
+fn get_display_prefs() -> window_manager::DisplayPrefs {
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: synchronous Tauri commands run on the main thread.
+        let mtm = unsafe { objc2_foundation::MainThreadMarker::new_unchecked() };
+        window_manager::macos::display_prefs(mtm)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        window_manager::DisplayPrefs::default()
+    }
 }
 
 /// Whether the app has macOS Accessibility access (needed by "Reserve space").

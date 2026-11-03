@@ -1,17 +1,17 @@
 use super::layout::{
-    appkit_to_cg, compute_layout, for_fullscreen, has_fullscreen_window, BorderMode, Edges, Layout,
-    Rect, Strip, LEVEL_DOCK_TINT, LEVEL_MENU_TINT,
+    appkit_to_cg, compute_layout, for_fullscreen, for_opaque_menu_bar, has_fullscreen_window,
+    BorderMode, Edges, Layout, Rect, Strip, LEVEL_DOCK_TINT, LEVEL_MENU_TINT,
 };
-use super::{macos_reserve, MonitorInfo, OverlayManager};
+use super::{macos_reserve, DisplayPrefs, MonitorInfo, OverlayManager};
 use objc2::ffi::{class_addMethod, method_getImplementation, method_getTypeEncoding};
 use objc2::rc::Retained;
 use objc2::runtime::{AnyClass, AnyObject, Imp, Sel};
 use objc2::{sel, ClassType};
-use objc2_app_kit::{NSScreen, NSWindow, NSWindowCollectionBehavior};
+use objc2_app_kit::{NSApplication, NSScreen, NSWindow, NSWindowCollectionBehavior, NSWorkspace};
 use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize};
 use std::sync::{Mutex, OnceLock};
-use tauri::Manager;
 use tauri::WebviewWindow;
+use tauri::{Emitter, Manager};
 
 /// Everything needed to lay the border out; derived from settings.
 #[derive(Debug, Clone, PartialEq)]
@@ -140,6 +140,21 @@ fn to_ns(r: Rect) -> NSRect {
     NSRect::new(NSPoint::new(r.x, r.y), NSSize::new(r.w, r.h))
 }
 
+/// Last display preferences seen, so changes can be broadcast once.
+static LAST_PREFS: Mutex<Option<DisplayPrefs>> = Mutex::new(None);
+
+/// Read the system display preferences. Main thread only.
+pub fn display_prefs(mtm: MainThreadMarker) -> DisplayPrefs {
+    let ws = NSWorkspace::sharedWorkspace();
+    let appearance = NSApplication::sharedApplication(mtm).effectiveAppearance();
+    DisplayPrefs {
+        reduce_motion: ws.accessibilityDisplayShouldReduceMotion(),
+        reduce_transparency: ws.accessibilityDisplayShouldReduceTransparency(),
+        increase_contrast: ws.accessibilityDisplayShouldIncreaseContrast(),
+        dark: appearance.name().to_string().contains("Dark"),
+    }
+}
+
 /// Whether another app is fullscreen on the display with AppKit `frame`.
 fn display_is_fullscreen(mtm: MainThreadMarker, frame: Rect) -> bool {
     let Some(primary_h) = primary_screen(mtm).map(|s| s.frame().size.height) else {
@@ -160,12 +175,14 @@ fn display_is_fullscreen(mtm: MainThreadMarker, frame: Rect) -> bool {
 fn current_layout(mtm: MainThreadMarker, screen: &NSScreen, config: &LayoutConfig) -> Layout {
     let frame = to_rect(screen.frame());
     let visible = to_rect(screen.visibleFrame());
-    let layout = compute_layout(config.mode, frame, visible, config.thickness, config.edges);
-    if config.mode != BorderMode::Overlay && display_is_fullscreen(mtm, frame) {
-        for_fullscreen(layout, config.mode, frame, config.thickness)
-    } else {
-        layout
+    let mut layout = compute_layout(config.mode, frame, visible, config.thickness, config.edges);
+    if config.mode == BorderMode::Fit && display_prefs(mtm).reduce_transparency {
+        layout = for_opaque_menu_bar(layout, frame, visible, config.thickness);
     }
+    if config.mode != BorderMode::Overlay && display_is_fullscreen(mtm, frame) {
+        layout = for_fullscreen(layout, config.mode, frame, config.thickness);
+    }
+    layout
 }
 
 impl MacOSOverlayManager {
@@ -340,14 +357,25 @@ pub fn configure_and_apply(app: &tauri::AppHandle, config: &LayoutConfig) {
 
 /// Re-apply the last config if the target display's geometry changed (Dock
 /// moved, resized or auto-hide toggled; menu bar auto-hide; display
-/// rearranged; an app entered or left fullscreen). Cheap enough to call every
-/// couple of seconds. Main thread only.
+/// rearranged; an app entered or left fullscreen; Reduce Transparency
+/// toggled), and broadcast display-preference changes. Cheap enough to call
+/// every couple of seconds. Main thread only.
 pub fn refresh_if_geometry_changed(app: &tauri::AppHandle) {
+    // SAFETY: called via run_on_main_thread.
+    let mtm = unsafe { MainThreadMarker::new_unchecked() };
+
+    // Broadcast accessibility / appearance changes to the overlay windows.
+    let prefs = display_prefs(mtm);
+    if let Ok(mut last) = LAST_PREFS.lock() {
+        if *last != Some(prefs) {
+            *last = Some(prefs);
+            let _ = app.emit("display-prefs-changed", prefs);
+        }
+    }
+
     let Some((config, previous)) = LAST_APPLIED.lock().ok().and_then(|l| l.clone()) else {
         return;
     };
-    // SAFETY: called via run_on_main_thread.
-    let mtm = unsafe { MainThreadMarker::new_unchecked() };
     let Some(screen) = MacOSOverlayManager::screen_for_id(mtm, &config.monitor_id) else {
         return;
     };

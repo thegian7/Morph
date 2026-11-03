@@ -37,6 +37,10 @@ Gotchas:
 - A 2 s main-thread poll (`refresh_if_geometry_changed`) re-applies the layout when the Dock or menu bar changes size, position or auto-hide, or when an app enters or leaves fullscreen.
 - Fullscreen: when another app's layer-0 window covers the whole display, `fit` and `reserve` collapse to a 3pt hairline along the top edge (`layout::for_fullscreen`), and nothing is reserved. `overlay` is left unchanged. Joining other apps' fullscreen Spaces needs both `CanJoinAllApplications` and the Accessory activation policy. `lib.rs` sets Accessory in `setup()`, because the bare dev binary doesn't get `LSUIElement` and would otherwise be a regular app that can't appear there.
 
+## System Display Preferences
+
+`window_manager::DisplayPrefs` (Reduce Motion, Reduce Transparency, Increase Contrast, dark appearance) comes from `NSWorkspace` / `NSApp.effectiveAppearance`. The overlay fetches it with `get_display_prefs` and follows `display-prefs-changed`, which the 2 s poll emits on change. `src/overlay/display-prefs.ts` applies it to what each window draws: no pulse, a contrast boost, an opacity floor, and darker colors in light mode. The raw state is still what gets broadcast to the tray. With Reduce Transparency on, the menu bar is opaque, so Fit mode moves its top tint to a hairline along the bottom of the menu-bar band, above the bar (`layout::for_opaque_menu_bar`).
+
 ## Multi-Page Vite Setup
 
 Two HTML entry points configured in `vite.config.ts`:
@@ -55,11 +59,12 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 
 - Rust: `cd src-tauri && cargo test`
 - TypeScript: `npx vitest run` (from project root)
-- Current totals: 121 Rust + 321 TypeScript = 442 tests
+- Current totals: 124 Rust + 329 TypeScript = 453 tests
 
 ## Key Events
 
 - `border-state-update`: Broadcast by the border-top overlay window (the leader) whenever its computed state changes; consumed by the tray icon (Rust) and tray popover. The overlay windows each run the color engine locally at 1 Hz.
 - `calendar-events-update`: Emitted by calendar poller when events change
 - `settings-changed`: Emitted by the `set_setting` command with `{ key, value }`; consumed by the overlay, theme hook, and window manager (`border_thickness`, `selected_display`, `border_mode`, `border_position` trigger a relayout)
+- `display-prefs-changed`: Emitted by the macOS geometry poll with `DisplayPrefs` whenever an accessibility or appearance preference changes; consumed by the overlay
 - `border-paused`: Emitted by `pause_border` with `{ minutes }` — positive = pause duration, `0` = resume, negative = pause until the next calendar event starts

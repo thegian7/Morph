@@ -31,6 +31,21 @@ pub struct MonitorInfo {
     pub is_primary: bool,
 }
 
+/// System display preferences the border adapts to. Sent to the overlay as
+/// `display-prefs-changed` and returned by the `get_display_prefs` command.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisplayPrefs {
+    /// System Settings → Accessibility → Display → Reduce motion.
+    pub reduce_motion: bool,
+    /// … → Reduce transparency (the menu bar becomes opaque).
+    pub reduce_transparency: bool,
+    /// … → Increase contrast.
+    pub increase_contrast: bool,
+    /// Dark appearance is in effect.
+    pub dark: bool,
+}
+
 /// Manages overlay border windows across the screen edges.
 ///
 /// Each platform provides its own implementation that handles
