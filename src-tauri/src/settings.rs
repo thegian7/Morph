@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS: &[(&str, &str)] = &[
     ("poll_interval_seconds", "60"),
     ("launch_at_login", "false"),
     ("selected_display", "primary"),
+    ("disabled_displays", "[]"),
     ("onboarding_complete", "false"),
     ("ignored_calendar_ids", "[]"),
 ];

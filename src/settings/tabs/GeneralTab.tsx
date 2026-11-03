@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { emit } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { enable, disable } from '@tauri-apps/plugin-autostart';
 import { useSettings } from '../hooks/useSettings';
 import { Toggle, Card, SectionHeader, Chip, Button } from '@/shared/components';
 import { useTheme, type ThemePreference } from '@/shared/hooks/useTheme';
+import { isMacOS } from '../components/PlacementSelector';
 
 interface MonitorInfo {
   id: string;
@@ -18,6 +19,23 @@ interface MonitorInfo {
 
 const PAUSE_DURATIONS = [5, 15, 30, 60] as const;
 
+/** Parse the `disabled_displays` setting (JSON array of display IDs). */
+export function parseDisabledDisplays(value: string | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Toggle one display in the disabled list, returning the new setting value. */
+export function toggleDisabledDisplay(disabled: string[], id: string): string {
+  const next = disabled.includes(id) ? disabled.filter((d) => d !== id) : [...disabled, id];
+  return JSON.stringify(next);
+}
+
 const THEME_OPTIONS: { value: ThemePreference; label: string; swatch: string }[] = [
   { value: 'system', label: 'System', swatch: 'linear-gradient(135deg, #f8f8f8 50%, #1a1a1a 50%)' },
   { value: 'light', label: 'Light', swatch: '#f8f8f8' },
@@ -29,6 +47,8 @@ export function GeneralTab() {
   const { preference, setPreference } = useTheme();
   const launchAtLogin = getSetting('launch_at_login') === 'true';
   const selectedDisplay = getSetting('selected_display') ?? 'primary';
+  const disabledDisplays = parseDisabledDisplays(getSetting('disabled_displays'));
+  const mac = isMacOS();
   const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
   const [pauseState, setPauseState] = useState<{ paused: boolean; minutes?: number }>({
     paused: false,
@@ -46,9 +66,24 @@ export function GeneralTab() {
   }, [savedTheme, setPreference]);
 
   useEffect(() => {
-    invoke<MonitorInfo[]>('get_available_monitors')
-      .then(setMonitors)
-      .catch((err) => console.error('Failed to get monitors:', err));
+    const load = () =>
+      invoke<MonitorInfo[]>('get_available_monitors')
+        .then(setMonitors)
+        .catch((err) => console.error('Failed to get monitors:', err));
+    load();
+    // Displays plugged in or unplugged while Settings is open.
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    listen('displays-changed', load)
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, []);
 
   function handleThemeChange(theme: ThemePreference) {
@@ -119,8 +154,49 @@ export function GeneralTab() {
         </Card>
       </section>
 
-      {/* Display Selection — only shown with multiple monitors */}
-      {monitors.length > 1 && (
+      {/* Per-display on/off (macOS) — only shown with multiple monitors */}
+      {mac && monitors.length > 1 && (
+        <section>
+          <SectionHeader
+            title="Displays"
+            description="Show the border on these displays. New displays get it automatically."
+          />
+          <Card>
+            <div className="space-y-3">
+              {monitors.map((monitor) => (
+                <Toggle
+                  key={monitor.id}
+                  label={`${monitor.name}${monitor.is_primary ? ' (Primary)' : ''} · ${Math.round(
+                    monitor.width,
+                  )} × ${Math.round(monitor.height)}`}
+                  checked={!disabledDisplays.includes(monitor.id)}
+                  onChange={() =>
+                    setSetting(
+                      'disabled_displays',
+                      toggleDisabledDisplay(disabledDisplays, monitor.id),
+                    )
+                  }
+                />
+              ))}
+            </div>
+          </Card>
+          {monitors.every((m) => disabledDisplays.includes(m.id)) && (
+            <p
+              data-testid="all-displays-off"
+              style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--color-text-secondary)',
+                marginTop: 'var(--space-1)',
+              }}
+            >
+              The border is off on every display.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Display Selection (other platforms) — only shown with multiple monitors */}
+      {!mac && monitors.length > 1 && (
         <section>
           <SectionHeader
             title="Display"

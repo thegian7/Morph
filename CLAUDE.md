@@ -44,6 +44,15 @@ Gotchas:
 - A 2 s main-thread poll (`refresh_if_geometry_changed`) re-applies the layout when the Dock or menu bar changes size, position or auto-hide, or when an app enters or leaves fullscreen.
 - Fullscreen: when another app's layer-0 window covers the whole display, `fit` and `reserve` collapse to a 3pt hairline along the top edge (`layout::for_fullscreen`), and nothing is reserved. `overlay` is left unchanged. Joining other apps' fullscreen Spaces needs both `CanJoinAllApplications` and the Accessory activation policy. `lib.rs` sets Accessory in `setup()`, because the bare dev binary doesn't get `LSUIElement` and would otherwise be a regular app that can't appear there.
 
+## Multiple Displays (macOS)
+
+The border covers every connected display except those listed in `disabled_displays`, a JSON array of display IDs that defaults to `[]`. New displays get the border automatically.
+
+- **Display IDs** are stable: `display-{vendor}-{model}-{serial}` from CoreGraphics (`window_manager/displays.rs`), with `-2`, `-3`… added for identical monitors. They come from `deviceDescription["NSScreenNumber"]`, not `NSScreen.CGDirectDisplayID`, which is too new to rely on. The old position-based IDs changed whenever displays were rearranged.
+- **Layout:** `macos::configure_and_apply` builds one layout per enabled display and sends all of their shapes to the renderer. Each display in Reserve mode gets its own enforcer `Target`; the enforcer applies the target of whichever display a window's center is on.
+- **Hot-plug:** the 2 s poll compares per-display layouts, so plugging in, unplugging or rearranging displays relayouts. It also emits `displays-changed`, and Settings → General re-fetches the monitor list in response, showing one switch per display.
+- `selected_display` is still used on Windows. On macOS it's ignored, and the Border tab preview shows the primary display.
+
 ## Settings UI and Fit Mode
 
 In Fit mode, Settings → Border shows what will actually be drawn. `useReservedEdges` polls the `get_reserved_edges` command every 3 s (`layout::reserved_edges`: menu bar on top, plus whichever edge the Dock is on) for the selected display. The live preview draws only enabled ∩ reserved edges. The Position selector draws enabled edges that can't be drawn as dashed, and explains why (`src/settings/components/fitEdges.ts`). Other modes and non-macOS platforms are unchanged.
@@ -70,7 +79,7 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 
 - Rust: `cd src-tauri && cargo test`
 - TypeScript: `npx vitest run` (from project root)
-- Current totals: 135 Rust + 343 TypeScript = 478 tests
+- Current totals: 139 Rust + 350 TypeScript = 489 tests
 
 ## Key Events
 
@@ -79,4 +88,5 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 - `calendar-events-update`: Emitted by calendar poller when events change
 - `settings-changed`: Emitted by the `set_setting` command with `{ key, value }`; consumed by the overlay, theme hook, and window manager (`border_thickness`, `selected_display`, `border_mode`, `border_position` trigger a relayout)
 - `display-prefs-changed`: Emitted by the macOS geometry poll with `DisplayPrefs` whenever an accessibility or appearance preference changes; consumed by the overlay
+- `displays-changed` (macOS): Emitted by the geometry poll when displays are connected or disconnected; consumed by Settings → General
 - `border-paused`: Emitted by `pause_border` with `{ minutes }` — positive = pause duration, `0` = resume, negative = pause until the next calendar event starts

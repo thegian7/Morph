@@ -28,7 +28,7 @@ pub struct Target {
     pub display: Rect,
 }
 
-static TARGET: Mutex<Option<Target>> = Mutex::new(None);
+static TARGETS: Mutex<Vec<Target>> = Mutex::new(Vec::new());
 static START: Once = Once::new();
 
 const POLL: Duration = Duration::from_millis(250);
@@ -41,13 +41,15 @@ const TOLERANCE: f64 = 1.5;
 /// Windows smaller than this are panels/HUDs we leave alone.
 const MIN_WINDOW: f64 = 40.0;
 
-/// Set (or clear, with `None`) the area windows must stay inside. Starts the
-/// enforcer thread the first time a target is set.
-pub fn set_target(target: Option<Target>) {
-    if let Ok(mut t) = TARGET.lock() {
-        *t = target;
+/// Set the areas windows must stay inside, one per display in Reserve mode
+/// (empty to stop enforcing). Starts the enforcer thread the first time a
+/// target is set.
+pub fn set_targets(targets: Vec<Target>) {
+    let any = !targets.is_empty();
+    if let Ok(mut t) = TARGETS.lock() {
+        *t = targets;
     }
-    if target.is_some() {
+    if any {
         START.call_once(|| {
             if !is_trusted() {
                 // Shows the system "would like to control this computer" prompt.
@@ -61,8 +63,8 @@ pub fn set_target(target: Option<Target>) {
     }
 }
 
-fn current_target() -> Option<Target> {
-    TARGET.lock().ok().and_then(|t| *t)
+fn current_targets() -> Vec<Target> {
+    TARGETS.lock().map(|t| t.clone()).unwrap_or_default()
 }
 
 /// Whether Morph has Accessibility access.
@@ -100,11 +102,12 @@ fn enforce_loop() {
     let mut warned_untrusted = false;
 
     loop {
-        let Some(target) = current_target() else {
+        let targets = current_targets();
+        if targets.is_empty() {
             attempts.clear();
             std::thread::sleep(IDLE_POLL);
             continue;
-        };
+        }
         if !is_trusted() {
             if !warned_untrusted {
                 eprintln!("[reserve] Accessibility access not granted; windows won't be moved");
@@ -133,13 +136,14 @@ fn enforce_loop() {
             if b.w < MIN_WINDOW || b.h < MIN_WINDOW {
                 continue;
             }
-            // Only windows centred on the target display.
-            if !target
-                .display
-                .contains_point(b.x + b.w / 2.0, b.y + b.h / 2.0)
-            {
+            // Enforce the reserved area of the display the window is centred
+            // on (displays with the border switched off have no target).
+            let Some(target) = targets
+                .iter()
+                .find(|t| t.display.contains_point(b.x + b.w / 2.0, b.y + b.h / 2.0))
+            else {
                 continue;
-            }
+            };
             // Native fullscreen windows live in their own Space and fill the
             // whole display; never touch them.
             if b.approx_eq(&target.display, TOLERANCE) {

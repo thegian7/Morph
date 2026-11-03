@@ -846,7 +846,11 @@ fn setup_event_listeners(app: &tauri::App) {
             if let Ok(payload) = serde_json::from_str::<SettingChanged>(event.payload()) {
                 if matches!(
                     payload.key.as_str(),
-                    "border_thickness" | "selected_display" | "border_mode" | "border_position"
+                    "border_thickness"
+                        | "selected_display"
+                        | "disabled_displays"
+                        | "border_mode"
+                        | "border_position"
                 ) {
                     let h = handle.clone();
                     tauri::async_runtime::spawn(async move {
@@ -890,9 +894,9 @@ async fn read_layout_config(handle: &tauri::AppHandle) -> window_manager::macos:
             .await
             .map(|v| thickness_to_px(&v))
             .unwrap_or(DEFAULT_THICKNESS),
-        monitor_id: get("selected_display")
-            .await
-            .unwrap_or_else(|| "primary".to_string()),
+        disabled: window_manager::displays::parse_disabled(
+            get("disabled_displays").await.as_deref(),
+        ),
     }
 }
 

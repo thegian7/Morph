@@ -1,3 +1,4 @@
+pub mod displays;
 pub mod layout;
 
 #[cfg(target_os = "macos")]

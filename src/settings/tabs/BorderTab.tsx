@@ -241,8 +241,9 @@ export function BorderTab() {
   // In Fit mode only edges with space reserved by macOS are drawn; preview
   // and selector reflect that.
   const mac = isMacOS();
-  const selectedDisplay = getSetting('selected_display') ?? 'primary';
-  const reserved = useReservedEdges(mac && mode === 'fit', selectedDisplay);
+  // The preview shows the primary display (the border covers every enabled
+  // display on macOS).
+  const reserved = useReservedEdges(mac && mode === 'fit', 'primary');
   const effectiveMode = mac ? mode : 'overlay';
   const previewPosition = effectiveEdges(enabled, effectiveMode, reserved);
   const hidden = hiddenEdges(enabled, effectiveMode, reserved);
