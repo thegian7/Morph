@@ -44,6 +44,10 @@ Gotchas:
 - A 2 s main-thread poll (`refresh_if_geometry_changed`) re-applies the layout when the Dock or menu bar changes size, position or auto-hide, or when an app enters or leaves fullscreen.
 - Fullscreen: when another app's layer-0 window covers the whole display, `fit` and `reserve` collapse to a 3pt hairline along the top edge (`layout::for_fullscreen`), and nothing is reserved. `overlay` is left unchanged. Joining other apps' fullscreen Spaces needs both `CanJoinAllApplications` and the Accessory activation policy. `lib.rs` sets Accessory in `setup()`, because the bare dev binary doesn't get `LSUIElement` and would otherwise be a regular app that can't appear there.
 
+## Settings UI and Fit Mode
+
+In Fit mode, Settings → Border shows what will actually be drawn. `useReservedEdges` polls the `get_reserved_edges` command every 3 s (`layout::reserved_edges`: menu bar on top, plus whichever edge the Dock is on) for the selected display. The live preview draws only enabled ∩ reserved edges. The Position selector draws enabled edges that can't be drawn as dashed, and explains why (`src/settings/components/fitEdges.ts`). Other modes and non-macOS platforms are unchanged.
+
 ## System Display Preferences
 
 `window_manager::DisplayPrefs` (Reduce Motion, Reduce Transparency, Increase Contrast, dark appearance) comes from `NSWorkspace` / `NSApp.effectiveAppearance`. The overlay fetches it with `get_display_prefs` and follows `display-prefs-changed`, which the 2 s poll emits on change. `src/overlay/display-prefs.ts` applies it to the `border-render` look on macOS, and to what each webview draws on Windows: no pulse, a contrast boost, an opacity floor, and darker colors in light mode. The raw state is still what gets broadcast to the tray. With Reduce Transparency on, the menu bar is opaque, so Fit mode moves its top tint to a hairline along the bottom of the menu-bar band, above the bar (`layout::for_opaque_menu_bar`).
@@ -66,7 +70,7 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 
 - Rust: `cd src-tauri && cargo test`
 - TypeScript: `npx vitest run` (from project root)
-- Current totals: 134 Rust + 329 TypeScript = 463 tests
+- Current totals: 135 Rust + 343 TypeScript = 478 tests
 
 ## Key Events
 

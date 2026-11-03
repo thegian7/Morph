@@ -484,6 +484,7 @@ pub fn run() {
             request_accessibility,
             get_display_prefs,
             uses_native_border,
+            get_reserved_edges,
         ])
         .setup(|app| {
             // Menu-bar (agent) app: no Dock icon, and its windows may join
@@ -919,6 +920,24 @@ fn get_display_prefs() -> window_manager::DisplayPrefs {
     #[cfg(not(target_os = "macos"))]
     {
         window_manager::DisplayPrefs::default()
+    }
+}
+
+/// Which edges of a display have space reserved by macOS (menu bar, Dock) —
+/// what the "Fit" placement can draw on. Every edge on other platforms.
+/// Sync command: runs on the main thread.
+#[tauri::command]
+fn get_reserved_edges(monitor_id: Option<String>) -> window_manager::layout::Edges {
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: synchronous Tauri commands run on the main thread.
+        let mtm = unsafe { objc2_foundation::MainThreadMarker::new_unchecked() };
+        window_manager::macos::reserved_edges_for(mtm, monitor_id.as_deref().unwrap_or("primary"))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = monitor_id;
+        window_manager::layout::Edges::ALL
     }
 }
 

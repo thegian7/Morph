@@ -62,8 +62,9 @@ impl BorderMode {
     }
 }
 
-/// Which edges the user has enabled (`border_position` setting).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Which edges the user has enabled (`border_position` setting), or which
+/// edges have space reserved by macOS ([`reserved_edges`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct Edges {
     pub top: bool,
     pub bottom: bool,
@@ -153,6 +154,18 @@ pub fn compute_layout(
         BorderMode::Fit => fit_layout(frame, visible, thickness),
         BorderMode::Reserve => reserve_layout(visible, thickness, edges),
         BorderMode::Overlay => overlay_layout(frame, thickness),
+    }
+}
+
+/// Which edges of a display have space reserved by macOS — the menu bar
+/// (top) and the Dock (whichever edge it's on). These are the only edges the
+/// `Fit` placement can draw on.
+pub fn reserved_edges(frame: Rect, visible: Rect) -> Edges {
+    Edges {
+        top: frame.max_y() - visible.max_y() >= MIN_BAND,
+        bottom: visible.y - frame.y >= MIN_BAND,
+        left: visible.x - frame.x >= MIN_BAND,
+        right: frame.max_x() - visible.max_x() >= MIN_BAND,
     }
 }
 
@@ -879,5 +892,22 @@ mod tests {
         assert_eq!(inner_radius(8.0), 6.0);
         assert_eq!(inner_radius(16.0), 12.0);
         assert_eq!(inner_radius(28.0), 12.0);
+    }
+
+    #[test]
+    fn reserved_edges_follow_menu_bar_and_dock() {
+        let e = reserved_edges(FRAME, VIS_DOCK_BOTTOM);
+        assert!(e.top && e.bottom && !e.left && !e.right);
+        let e = reserved_edges(FRAME, Rect::new(70.0, 0.0, 1442.0, 945.0));
+        assert!(e.top && e.left && !e.bottom && !e.right);
+        let e = reserved_edges(FRAME, Rect::new(0.0, 0.0, 1442.0, 945.0));
+        assert!(e.top && e.right && !e.left && !e.bottom);
+        // Secondary display: menu bar only.
+        let frame = Rect::new(1512.0, -200.0, 2560.0, 1440.0);
+        let e = reserved_edges(frame, Rect::new(1512.0, -200.0, 2560.0, 1415.0));
+        assert!(e.top && !e.bottom && !e.left && !e.right);
+        // Everything auto-hidden.
+        let e = reserved_edges(FRAME, FRAME);
+        assert!(!e.top && !e.bottom && !e.left && !e.right);
     }
 }

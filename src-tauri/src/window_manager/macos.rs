@@ -8,7 +8,7 @@
 
 use super::layout::{
     appkit_to_cg, compute_layout, for_fullscreen, for_opaque_menu_bar, has_fullscreen_window,
-    shapes, BorderMode, Edges, Layout, Rect, LEVEL_STATUS,
+    reserved_edges, shapes, BorderMode, Edges, Layout, Rect, LEVEL_STATUS,
 };
 use super::{macos_render, macos_reserve, DisplayPrefs, MonitorInfo};
 use objc2::rc::Retained;
@@ -107,6 +107,15 @@ fn to_rect(r: NSRect) -> Rect {
 
 fn to_ns(r: Rect) -> NSRect {
     NSRect::new(NSPoint::new(r.x, r.y), NSSize::new(r.w, r.h))
+}
+
+/// Edges macOS reserves (menu bar, Dock) on the display `monitor_id`.
+/// Main thread only.
+pub fn reserved_edges_for(mtm: MainThreadMarker, monitor_id: &str) -> Edges {
+    match screen_for_id(mtm, monitor_id) {
+        Some(screen) => reserved_edges(to_rect(screen.frame()), to_rect(screen.visibleFrame())),
+        None => Edges::ALL,
+    }
 }
 
 /// Read the system display preferences. Main thread only.
