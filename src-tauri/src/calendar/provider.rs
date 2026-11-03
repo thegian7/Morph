@@ -9,6 +9,10 @@ use super::types::{CalendarEvent, ProviderType};
 ///
 /// Providers are responsible for authenticating, refreshing tokens, and
 /// fetching events from a single calendar account.
+// `#[async_trait]` marks its boxed-future methods `#[must_use]`, which newer
+// clippy (`double_must_use`) flags because `Result` already is. `unknown_lints`
+// keeps older toolchains, which lack that lint, quiet.
+#[allow(unknown_lints, clippy::double_must_use)]
 #[async_trait]
 pub trait CalendarProvider: Send + Sync {
     /// Perform the initial authentication flow (e.g., OAuth2 PKCE).

@@ -104,6 +104,7 @@ describe('BorderTab', () => {
     expect(mockSetSetting).toHaveBeenCalledWith('border_position', 'all');
     expect(mockSetSetting).toHaveBeenCalledWith('color_palette', 'ambient');
     expect(mockSetSetting).toHaveBeenCalledWith('color_intensity', 'normal');
+    expect(mockSetSetting).toHaveBeenCalledWith('border_mode', 'fit');
   });
 
   it('renders thickness labels', () => {

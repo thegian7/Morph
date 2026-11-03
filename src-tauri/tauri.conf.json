@@ -28,10 +28,6 @@
   },
   "app": {
     "macOSPrivateApi": true,
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true
-    },
     "windows": [
       {
         "label": "border-top",
@@ -45,7 +41,8 @@
         "decorations": false,
         "skipTaskbar": true,
         "resizable": false,
-        "alwaysOnTop": true
+        "alwaysOnTop": true,
+        "backgroundThrottling": "disabled"
       },
       {
         "label": "border-bottom",

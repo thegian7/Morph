@@ -1,7 +1,9 @@
 pub mod border_state;
 pub mod calendar;
+pub mod login_item;
 pub mod settings;
 pub mod tray;
+pub mod tray_popover;
 pub mod window_manager;
 
 use sqlx::Row;
@@ -18,11 +20,6 @@ use calendar::poller::CalendarPoller;
 use calendar::provider::CalendarProvider;
 
 use border_state::BorderState;
-
-#[cfg(target_os = "macos")]
-use window_manager::macos::MacOSOverlayManager;
-#[cfg(target_os = "macos")]
-use window_manager::OverlayManager;
 
 /// Default border thickness in logical pixels (maps to "medium").
 #[cfg(target_os = "macos")]
@@ -459,6 +456,20 @@ pub fn run() {
                 .add_migrations("sqlite:morph.db", migrations)
                 .build(),
         )
+        .on_page_load(|webview, payload| {
+            #[cfg(target_os = "macos")]
+            if webview.label() == window_manager::macos::ENGINE_LABEL
+                && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
+            {
+                let handle = webview.app_handle().clone();
+                let h = handle.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    window_manager::macos::engine_loaded(&h);
+                });
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (webview, payload);
+        })
         .invoke_handler(tauri::generate_handler![
             settings::get_setting,
             settings::set_setting,
@@ -471,71 +482,86 @@ pub fn run() {
             force_sync,
             pause_border,
             get_available_monitors,
+            accessibility_status,
+            request_accessibility,
+            get_display_prefs,
+            uses_native_border,
+            get_reserved_edges,
+            tray_popover::hide_tray_popover,
+            login_item::get_login_item_status,
+            login_item::set_login_item,
+            login_item::open_login_items_settings,
         ])
         .setup(|app| {
-            // Border overlay windows are declared in tauri.conf.json.
-            // Show them first so the webview loads and JS initializes,
-            // then apply macOS NSWindow config after a delay.
-            // (Applying NSWindow config before webview load kills JS execution.)
+            // Menu-bar (agent) app: no Dock icon, and its windows may join
+            // other apps' fullscreen Spaces. The bundle's Info.plist sets
+            // LSUIElement too; setting it here makes `tauri dev` and the bare
+            // binary behave the same as the shipped app.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+            // macOS draws the border natively (window_manager::macos_render).
+            // Of the four border webviews declared in tauri.conf.json only
+            // `border-top` is kept, to run the color engine; the other three
+            // are destroyed. No startup delay: the native windows don't
+            // depend on any webview, and the engine window is configured
+            // from on_page_load once its page has loaded.
             #[cfg(target_os = "macos")]
             {
-                // Show windows immediately so webview can load
-                for label in ["border-top", "border-bottom", "border-left", "border-right"] {
+                for label in ["border-bottom", "border-left", "border-right"] {
                     if let Some(w) = app.get_webview_window(label) {
-                        if let Err(e) = w.show() {
-                            eprintln!("Failed to show '{label}': {e}");
+                        if let Err(e) = w.destroy() {
+                            eprintln!("Failed to destroy '{label}': {e}");
                         }
                     }
                 }
+                if let Some(w) = app.get_webview_window(window_manager::macos::ENGINE_LABEL) {
+                    if let Err(e) = w.show() {
+                        eprintln!("Failed to show color engine window: {e}");
+                    }
+                }
 
-                // Apply NSWindow overlay config after webview has loaded
+                // The engine's computed look → native renderer.
+                let render_handle = app.handle().clone();
+                app.listen("border-render", move |event| {
+                    #[derive(serde::Deserialize)]
+                    #[serde(rename_all = "camelCase")]
+                    struct Render {
+                        color: String,
+                        opacity: f64,
+                        pulse_speed: f64,
+                    }
+                    let Ok(r) = serde_json::from_str::<Render>(event.payload()) else {
+                        return;
+                    };
+                    let Some(state) = window_manager::macos_render::RenderState::from_payload(
+                        &r.color,
+                        r.opacity,
+                        r.pulse_speed,
+                    ) else {
+                        return;
+                    };
+                    let _ = render_handle.run_on_main_thread(move || {
+                        // SAFETY: run_on_main_thread.
+                        let mtm = unsafe { objc2_foundation::MainThreadMarker::new_unchecked() };
+                        window_manager::macos_render::set_state(mtm, state);
+                    });
+                });
+
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    // Give webviews time to load HTML and initialize JS
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    relayout_borders(&handle).await;
 
-                    // Read saved thickness and selected display from settings
-                    let (thickness, selected_display) = {
-                        let db = handle.state::<tauri_plugin_sql::DbInstances>();
-                        let instances = db.0.read().await;
-                        if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) =
-                            instances.get("sqlite:morph.db")
-                        {
-                            let t = sqlx::query_scalar::<_, String>(
-                                "SELECT value FROM settings WHERE key = 'border_thickness'",
-                            )
-                            .fetch_optional(pool)
-                            .await
-                            .ok()
-                            .flatten()
-                            .map(|v| thickness_to_px(&v))
-                            .unwrap_or(DEFAULT_THICKNESS);
-                            let d = sqlx::query_scalar::<_, String>(
-                                "SELECT value FROM settings WHERE key = 'selected_display'",
-                            )
-                            .fetch_optional(pool)
-                            .await
-                            .ok()
-                            .flatten()
-                            .unwrap_or_else(|| "primary".to_string());
-                            (t, d)
-                        } else {
-                            (DEFAULT_THICKNESS, "primary".to_string())
-                        }
-                    };
-
-                    // NSWindow ops must run on the main thread
-                    let handle2 = handle.clone();
-                    let _ = handle.run_on_main_thread(move || {
-                        let mut overlay_mgr = MacOSOverlayManager::new();
-                        if let Err(e) = overlay_mgr.create_overlay_windows(&handle2) {
-                            eprintln!("Failed to configure macOS overlay: {e}");
-                        } else {
-                            overlay_mgr.set_target_monitor(&selected_display);
-                            overlay_mgr.set_thickness(thickness);
-                            // Don't call show() again — windows are already visible
-                        }
-                    });
+                    // Follow the Dock and menu bar: when they move, resize or
+                    // auto-hide, the usable area changes and the border must too.
+                    let mut tick = tokio::time::interval(std::time::Duration::from_secs(2));
+                    loop {
+                        tick.tick().await;
+                        let h = handle.clone();
+                        let _ = handle.run_on_main_thread(move || {
+                            window_manager::macos::refresh_if_geometry_changed(&h);
+                        });
+                    }
                 });
             }
 
@@ -543,6 +569,11 @@ pub fn run() {
             if let Err(e) = tray::setup_tray(app) {
                 eprintln!("Failed to set up system tray: {e}");
             }
+            tray_popover::precreate(app.handle());
+
+            // Move a legacy LaunchAgent login item to SMAppService (bundled
+            // macOS app only; no-op in dev and on other platforms).
+            login_item::migrate(app.handle());
 
             // Restore previously connected calendar providers from the database.
             // Spawned before the poller so providers are available by the first poll cycle.
@@ -814,7 +845,7 @@ fn setup_event_listeners(app: &tauri::App) {
         }
     });
 
-    // settings-changed: handle border_thickness and selected_display changes
+    // settings-changed: re-lay out the border when geometry-affecting settings change
     #[cfg(target_os = "macos")]
     {
         let handle = app.handle().clone();
@@ -822,55 +853,145 @@ fn setup_event_listeners(app: &tauri::App) {
             #[derive(serde::Deserialize)]
             struct SettingChanged {
                 key: String,
-                #[allow(dead_code)]
-                value: String,
             }
             if let Ok(payload) = serde_json::from_str::<SettingChanged>(event.payload()) {
-                if payload.key == "border_thickness" || payload.key == "selected_display" {
-                    // Re-read both values from DB and reposition
+                if matches!(
+                    payload.key.as_str(),
+                    "border_thickness"
+                        | "selected_display"
+                        | "disabled_displays"
+                        | "border_mode"
+                        | "border_position"
+                ) {
                     let h = handle.clone();
                     tauri::async_runtime::spawn(async move {
-                        let (thickness, selected_display) = {
-                            let db = h.state::<tauri_plugin_sql::DbInstances>();
-                            let instances = db.0.read().await;
-                            if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) =
-                                instances.get("sqlite:morph.db")
-                            {
-                                let t = sqlx::query_scalar::<_, String>(
-                                    "SELECT value FROM settings WHERE key = 'border_thickness'",
-                                )
-                                .fetch_optional(pool)
-                                .await
-                                .ok()
-                                .flatten()
-                                .map(|v| thickness_to_px(&v))
-                                .unwrap_or(DEFAULT_THICKNESS);
-                                let d = sqlx::query_scalar::<_, String>(
-                                    "SELECT value FROM settings WHERE key = 'selected_display'",
-                                )
-                                .fetch_optional(pool)
-                                .await
-                                .ok()
-                                .flatten()
-                                .unwrap_or_else(|| "primary".to_string());
-                                (t, d)
-                            } else {
-                                (DEFAULT_THICKNESS, "primary".to_string())
-                            }
-                        };
-
-                        let h2 = h.clone();
-                        let _ = h.run_on_main_thread(move || {
-                            let mut mgr = MacOSOverlayManager::new();
-                            if mgr.create_overlay_windows(&h2).is_ok() {
-                                mgr.set_target_monitor(&selected_display);
-                                mgr.set_thickness(thickness);
-                            }
-                        });
+                        relayout_borders(&h).await;
                     });
                 }
             }
         });
+    }
+}
+
+/// Read the layout-affecting settings from the database.
+#[cfg(target_os = "macos")]
+async fn read_layout_config(handle: &tauri::AppHandle) -> window_manager::macos::LayoutConfig {
+    use window_manager::layout::{BorderMode, Edges};
+
+    let db = handle.state::<tauri_plugin_sql::DbInstances>();
+    let instances = db.0.read().await;
+    let pool = match instances.get("sqlite:morph.db") {
+        Some(tauri_plugin_sql::DbPool::Sqlite(pool)) => Some(pool),
+        _ => None,
+    };
+    let get = |key: &'static str| async move {
+        match pool {
+            Some(pool) => {
+                sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ?1")
+                    .bind(key)
+                    .fetch_optional(pool)
+                    .await
+                    .ok()
+                    .flatten()
+            }
+            None => None,
+        }
+    };
+
+    window_manager::macos::LayoutConfig {
+        mode: BorderMode::from_setting(&get("border_mode").await.unwrap_or_default()),
+        edges: Edges::from_position(&get("border_position").await.unwrap_or_default()),
+        thickness: get("border_thickness")
+            .await
+            .map(|v| thickness_to_px(&v))
+            .unwrap_or(DEFAULT_THICKNESS),
+        disabled: window_manager::displays::parse_disabled(
+            get("disabled_displays").await.as_deref(),
+        ),
+    }
+}
+
+/// Re-read layout settings and re-apply the border layout on the main thread
+/// (NSWindow operations must run there).
+#[cfg(target_os = "macos")]
+async fn relayout_borders(handle: &tauri::AppHandle) {
+    let config = read_layout_config(handle).await;
+    let h = handle.clone();
+    let _ = handle.run_on_main_thread(move || {
+        window_manager::macos::configure_and_apply(&h, &config);
+    });
+}
+
+/// Current system display preferences (Reduce Motion, Reduce Transparency,
+/// Increase Contrast, dark appearance). Sync command: runs on the main thread.
+#[tauri::command]
+fn get_display_prefs() -> window_manager::DisplayPrefs {
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: synchronous Tauri commands run on the main thread.
+        let mtm = unsafe { objc2_foundation::MainThreadMarker::new_unchecked() };
+        window_manager::macos::display_prefs(mtm)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        window_manager::DisplayPrefs::default()
+    }
+}
+
+/// Which edges of a display have space reserved by macOS (menu bar, Dock) —
+/// what the "Fit" placement can draw on. Every edge on other platforms.
+/// Sync command: runs on the main thread.
+#[tauri::command]
+fn get_reserved_edges(monitor_id: Option<String>) -> window_manager::layout::Edges {
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: synchronous Tauri commands run on the main thread.
+        let mtm = unsafe { objc2_foundation::MainThreadMarker::new_unchecked() };
+        window_manager::macos::reserved_edges_for(mtm, monitor_id.as_deref().unwrap_or("primary"))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = monitor_id;
+        window_manager::layout::Edges::ALL
+    }
+}
+
+/// Whether the border is drawn natively (macOS). When true the overlay
+/// webview only runs the color engine and emits `border-render`.
+#[tauri::command]
+fn uses_native_border() -> bool {
+    cfg!(target_os = "macos")
+}
+
+/// Whether the app has macOS Accessibility access (needed by "Reserve space").
+#[tauri::command]
+fn accessibility_status() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        window_manager::macos_reserve::is_trusted()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
+/// Prompt for Accessibility access and open the matching System Settings pane.
+#[tauri::command]
+fn request_accessibility() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        let trusted = window_manager::macos_reserve::request_trust();
+        if !trusted {
+            let _ = open::that(
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            );
+        }
+        trusted
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
     }
 }
 

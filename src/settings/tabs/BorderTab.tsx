@@ -3,6 +3,9 @@ import { useSettings } from '../hooks/useSettings';
 import { Slider, Card, SectionHeader, Button } from '@/shared/components';
 import { MiniPreview } from '../components/MiniPreview';
 import { TimelineScrubber } from '../components/TimelineScrubber';
+import { PlacementSelector, isMacOS } from '../components/PlacementSelector';
+import { effectiveEdges, hiddenEdges, hiddenEdgesHint, type Edge } from '../components/fitEdges';
+import { useReservedEdges } from '../hooks/useReservedEdges';
 import type { BorderState, UserSettings } from '@/lib/color-engine/types';
 import { DEFAULT_USER_SETTINGS } from '@/lib/color-engine/types';
 
@@ -30,11 +33,10 @@ const INTENSITY_LABELS = ['Subtle (0.6\u00d7)', 'Normal (1.0\u00d7)', 'Vivid (1.
 const DEFAULTS = {
   border_thickness: 'medium',
   border_position: 'all',
+  border_mode: 'fit',
   color_palette: 'ambient',
   color_intensity: 'normal',
 } as const;
-
-type Edge = 'top' | 'bottom' | 'left' | 'right';
 
 function edgesFromPosition(position: string): Set<Edge> {
   switch (position) {
@@ -74,9 +76,15 @@ function positionFromEdges(edges: Set<Edge>): string {
 function PositionSelector({
   position,
   onChange,
+  unavailable = new Set<Edge>(),
+  hint = null,
 }: {
   position: string;
   onChange: (pos: string) => void;
+  /** Enabled edges that won't be drawn (no reserved space in Fit mode). */
+  unavailable?: Set<Edge>;
+  /** Explanation shown under the selector when some edges are unavailable. */
+  hint?: string | null;
 }) {
   const activeEdges = edgesFromPosition(position);
   const [hovered, setHovered] = useState<Edge | null>(null);
@@ -94,6 +102,8 @@ function PositionSelector({
   }
 
   function edgeFill(edge: Edge): string {
+    if (activeEdges.has(edge) && unavailable.has(edge))
+      return 'color-mix(in srgb, var(--color-primary) 30%, transparent)';
     if (activeEdges.has(edge)) return 'var(--color-primary)';
     if (hovered === edge)
       return 'color-mix(in srgb, var(--color-primary) 40%, var(--color-border))';
@@ -156,7 +166,7 @@ function PositionSelector({
             onMouseLeave={() => setHovered(null)}
             style={{ cursor: 'pointer' }}
             role="button"
-            aria-label={`Toggle ${edge} edge`}
+            aria-label={`Toggle ${edge} edge${unavailable.has(edge) && activeEdges.has(edge) ? ' (hidden in Fit mode)' : ''}`}
             aria-pressed={activeEdges.has(edge)}
           >
             <rect {...hit} fill="transparent" />
@@ -164,6 +174,11 @@ function PositionSelector({
               {...rect}
               rx="2"
               fill={edgeFill(edge)}
+              stroke={
+                unavailable.has(edge) && activeEdges.has(edge) ? 'var(--color-primary)' : 'none'
+              }
+              strokeDasharray="3 2"
+              data-unavailable={unavailable.has(edge) && activeEdges.has(edge) ? 'true' : undefined}
               style={{ transition: 'fill 150ms ease' }}
             />
           </g>
@@ -178,6 +193,18 @@ function PositionSelector({
       >
         Click an edge to toggle it on or off.
       </p>
+      {hint && (
+        <p
+          data-testid="hidden-edges-hint"
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: 'var(--color-text-secondary)',
+            marginTop: 'var(--space-1)',
+          }}
+        >
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -191,6 +218,7 @@ export function BorderTab() {
 
   const thickness = getSetting('border_thickness') ?? 'medium';
   const position = getSetting('border_position') ?? 'all';
+  const mode = getSetting('border_mode') ?? 'fit';
   const palette = getSetting('color_palette') ?? 'ambient';
   const intensity = getSetting('color_intensity') ?? 'normal';
 
@@ -204,12 +232,21 @@ export function BorderTab() {
   );
 
   const activeEdges = edgesFromPosition(position);
-  const previewPosition = {
+  const enabled = {
     top: activeEdges.has('top'),
     bottom: activeEdges.has('bottom'),
     left: activeEdges.has('left'),
     right: activeEdges.has('right'),
   };
+  // In Fit mode only edges with space reserved by macOS are drawn; preview
+  // and selector reflect that.
+  const mac = isMacOS();
+  // The preview shows the primary display (the border covers every enabled
+  // display on macOS).
+  const reserved = useReservedEdges(mac && mode === 'fit', 'primary');
+  const effectiveMode = mac ? mode : 'overlay';
+  const previewPosition = effectiveEdges(enabled, effectiveMode, reserved);
+  const hidden = hiddenEdges(enabled, effectiveMode, reserved);
 
   const defaultPreviewState: BorderState = {
     color: palette === 'ocean' ? '#3b82f6' : '#22c55e',
@@ -287,12 +324,25 @@ export function BorderTab() {
         </div>
       </section>
 
+      {/* Placement (macOS) */}
+      {mac && (
+        <section>
+          <SectionHeader
+            title="Placement"
+            description="How the border shares the screen with your windows."
+          />
+          <PlacementSelector mode={mode} onChange={(m) => setSetting('border_mode', m)} />
+        </section>
+      )}
+
       {/* Position */}
       <section>
         <SectionHeader title="Position" />
         <PositionSelector
           position={position}
           onChange={(pos) => setSetting('border_position', pos)}
+          unavailable={new Set(hidden)}
+          hint={hiddenEdgesHint(hidden, reserved)}
         />
       </section>
 

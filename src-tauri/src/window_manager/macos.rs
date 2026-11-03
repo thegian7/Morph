@@ -1,304 +1,339 @@
-use super::{MonitorInfo, OverlayManager};
-use objc2_app_kit::{NSScreen, NSWindow, NSWindowCollectionBehavior, NSWindowLevel};
-use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize};
-use tauri::Manager;
-use tauri::WebviewWindow;
+//! macOS border: layout, display preferences, and the color-engine webview.
+//!
+//! The border itself is drawn natively by [`super::macos_render`]. The
+//! `border-top` webview stays alive only to run the TypeScript color engine
+//! (it emits `border-render` for the native renderer and
+//! `border-state-update` for the tray); it is parked on screen as an
+//! invisible 1pt window because WebKit throttles hidden webviews' timers.
 
-/// macOS CoreGraphics window level: above fullscreen apps.
-const WINDOW_LEVEL: NSWindowLevel = 1000; // kCGScreenSaverWindowLevel
+use super::displays::{stable_ids, DisplayHardware};
+use super::layout::{
+    appkit_to_cg, compute_layout, for_fullscreen, for_opaque_menu_bar, has_fullscreen_window,
+    reserved_edges, shapes, BorderMode, Edges, Layout, Rect, LEVEL_STATUS,
+};
+use super::{macos_render, macos_reserve, DisplayPrefs, MonitorInfo};
+use objc2::rc::Retained;
+use objc2_app_kit::{NSApplication, NSScreen, NSWindow, NSWindowCollectionBehavior, NSWorkspace};
+use objc2_foundation::{MainThreadMarker, NSNumber, NSPoint, NSRect, NSSize, NSString};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
+use tauri::{Emitter, Manager};
 
-/// macOS overlay manager using NSWindow APIs for window level,
-/// collection behavior, and click-through configuration.
-pub struct MacOSOverlayManager {
-    pub top: Option<WebviewWindow>,
-    pub bottom: Option<WebviewWindow>,
-    pub left: Option<WebviewWindow>,
-    pub right: Option<WebviewWindow>,
-    /// Which monitor to target: `"primary"` or a platform-derived ID.
-    pub target_monitor: String,
+/// Label of the webview that runs the color engine.
+pub const ENGINE_LABEL: &str = "border-top";
+
+/// Everything needed to lay the border out; derived from settings.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LayoutConfig {
+    pub mode: BorderMode,
+    pub edges: Edges,
+    pub thickness: f64,
+    /// Stable IDs of displays the user switched the border off on
+    /// (`disabled_displays`). Every other display — including ones plugged in
+    /// later — gets a border.
+    pub disabled: Vec<String>,
 }
 
+/// One display's ID and its computed layout.
+type DisplayLayouts = Vec<(String, Layout)>;
+
+/// The last config applied and the geometry it produced per display, so the
+/// screen watcher can re-apply only when something actually changed
+/// (including displays being connected or disconnected).
+static LAST_APPLIED: Mutex<Option<(LayoutConfig, DisplayLayouts)>> = Mutex::new(None);
+
+/// IDs of the connected displays at the last check, to announce hot-plug.
+static LAST_SCREEN_IDS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// Last display preferences seen, so changes can be broadcast once.
+static LAST_PREFS: Mutex<Option<DisplayPrefs>> = Mutex::new(None);
+
+/// Set once the engine webview has finished loading. Configuring its
+/// NSWindow before that stops WKWebView from ever running its JavaScript.
+static ENGINE_LOADED: AtomicBool = AtomicBool::new(false);
+
+/// Monitor enumeration for the settings UI.
+pub struct MacOSOverlayManager;
+
 impl MacOSOverlayManager {
-    pub fn new() -> Self {
-        Self {
-            top: None,
-            bottom: None,
-            left: None,
-            right: None,
-            target_monitor: "primary".to_string(),
-        }
-    }
-
-    /// Apply NSWindow-level overlay configuration to a single window.
-    ///
-    /// Sets window level, collection behavior, click-through, and removes shadow.
-    fn configure_ns_window(window: &WebviewWindow) -> Result<(), Box<dyn std::error::Error>> {
-        let ns_window_ptr = window
-            .ns_window()
-            .map_err(|e| format!("failed to get NSWindow: {e}"))?;
-
-        // SAFETY: ns_window() returns a valid NSWindow pointer and we are on the main thread
-        // (Tauri setup runs on main thread).
-        let ns_window: &NSWindow = unsafe { &*(ns_window_ptr as *const NSWindow) };
-
-        // Window level 1000 (kCGScreenSaverWindowLevel) — appears above fullscreen apps
-        ns_window.setLevel(WINDOW_LEVEL);
-
-        // Collection behavior: appear on all Spaces, persist through Mission Control,
-        // excluded from Cmd+Tab, and allowed alongside fullscreen apps.
-        ns_window.setCollectionBehavior(
-            NSWindowCollectionBehavior::CanJoinAllSpaces
-                | NSWindowCollectionBehavior::Stationary
-                | NSWindowCollectionBehavior::IgnoresCycle
-                | NSWindowCollectionBehavior::FullScreenAuxiliary,
-        );
-
-        // Click-through at the NSWindow level (belt-and-suspenders with Tauri's click-through)
-        ns_window.setIgnoresMouseEvents(true);
-
-        // No shadow for transparent overlay
-        ns_window.setHasShadow(false);
-
-        Ok(())
-    }
-
-    /// Get the main screen frame in macOS native coordinates (bottom-left origin).
-    fn main_screen_frame() -> Option<NSRect> {
-        // SAFETY: Tauri setup and commands run on the main thread.
-        let mtm = unsafe { MainThreadMarker::new_unchecked() };
-        let screen = NSScreen::mainScreen(mtm)?;
-        Some(screen.frame())
-    }
-
     /// Enumerate all connected monitors and return their info.
     pub fn get_available_monitors() -> Vec<MonitorInfo> {
-        // SAFETY: Tauri setup and commands run on the main thread.
+        // SAFETY: Tauri setup and sync commands run on the main thread.
         let mtm = unsafe { MainThreadMarker::new_unchecked() };
-        let Some(main_screen) = NSScreen::mainScreen(mtm) else {
-            return vec![];
-        };
-        let main_frame = main_screen.frame();
-
-        let screens = NSScreen::screens(mtm);
-        let mut monitors = Vec::new();
-
-        for screen in screens.iter() {
-            let frame = screen.frame();
-            let is_primary = frame.origin.x == main_frame.origin.x
-                && frame.origin.y == main_frame.origin.y
-                && frame.size.width == main_frame.size.width
-                && frame.size.height == main_frame.size.height;
-
-            let name = screen.localizedName().to_string();
-            let id = if is_primary {
-                "primary".to_string()
-            } else {
-                format!(
-                    "{}:{}x{}",
-                    name, frame.origin.x as i64, frame.origin.y as i64
-                )
-            };
-
-            monitors.push(MonitorInfo {
-                id,
-                name,
-                width: frame.size.width,
-                height: frame.size.height,
-                x: frame.origin.x,
-                y: frame.origin.y,
-                is_primary,
-            });
-        }
-
-        monitors
-    }
-
-    /// Find the screen frame for a given monitor ID, falling back to main screen.
-    fn screen_frame_for_id(id: &str) -> Option<NSRect> {
-        if id == "primary" {
-            return Self::main_screen_frame();
-        }
-
-        // SAFETY: Tauri setup and commands run on the main thread.
-        let mtm = unsafe { MainThreadMarker::new_unchecked() };
-        let screens = NSScreen::screens(mtm);
-
-        for screen in screens.iter() {
-            let frame = screen.frame();
-            let name = screen.localizedName().to_string();
-            let screen_id = format!(
-                "{}:{}x{}",
-                name, frame.origin.x as i64, frame.origin.y as i64
-            );
-            if screen_id == id {
-                return Some(frame);
-            }
-        }
-
-        // Fallback to primary if saved monitor not found (e.g., disconnected)
-        Self::main_screen_frame()
-    }
-
-    /// Set an NSWindow's frame directly using native coordinates.
-    fn set_window_frame(
-        window: &WebviewWindow,
-        x: f64,
-        y: f64,
-        w: f64,
-        h: f64,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let ns_window_ptr = window
-            .ns_window()
-            .map_err(|e| format!("failed to get NSWindow: {e}"))?;
-        let ns_window: &NSWindow = unsafe { &*(ns_window_ptr as *const NSWindow) };
-
-        let rect = NSRect::new(NSPoint::new(x, y), NSSize::new(w, h));
-        ns_window.setFrame_display_animate(rect, true, false);
-        Ok(())
-    }
-
-    /// Helper: get all stored windows as a slice of references.
-    fn windows(&self) -> Vec<&WebviewWindow> {
-        [&self.top, &self.bottom, &self.left, &self.right]
-            .iter()
-            .filter_map(|opt| opt.as_ref())
+        screens_with_ids(mtm)
+            .into_iter()
+            .enumerate()
+            .map(|(i, (screen, id))| {
+                let frame = screen.frame();
+                MonitorInfo {
+                    id,
+                    name: screen.localizedName().to_string(),
+                    width: frame.size.width,
+                    height: frame.size.height,
+                    x: frame.origin.x,
+                    y: frame.origin.y,
+                    is_primary: i == 0,
+                }
+            })
             .collect()
     }
 }
 
-impl Default for MacOSOverlayManager {
-    fn default() -> Self {
-        Self::new()
+/// The display that owns the menu bar. Its AppKit frame origin is (0, 0) and
+/// global CoreGraphics coordinates are measured from its top-left corner.
+fn primary_screen(mtm: MainThreadMarker) -> Option<Retained<NSScreen>> {
+    NSScreen::screens(mtm).firstObject()
+}
+
+/// The CoreGraphics display ID behind a screen (`NSScreenNumber`; works on
+/// every macOS version, unlike `NSScreen.CGDirectDisplayID`).
+fn display_number(screen: &NSScreen) -> Option<u32> {
+    let desc = screen.deviceDescription();
+    let value = desc.objectForKey(&NSString::from_str("NSScreenNumber"))?;
+    let number = value.downcast::<NSNumber>().ok()?;
+    Some(number.unsignedIntValue())
+}
+
+fn hardware(screen: &NSScreen) -> DisplayHardware {
+    match display_number(screen) {
+        // SAFETY: plain CoreGraphics queries on a display ID.
+        Some(id) => unsafe {
+            DisplayHardware {
+                vendor: CGDisplayVendorNumber(id),
+                model: CGDisplayModelNumber(id),
+                serial: CGDisplaySerialNumber(id),
+            }
+        },
+        None => DisplayHardware {
+            vendor: 0,
+            model: 0,
+            serial: 0,
+        },
     }
 }
 
-impl OverlayManager for MacOSOverlayManager {
-    fn create_overlay_windows(
-        &mut self,
-        app: &tauri::AppHandle,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // Get the border windows that were already created in lib.rs setup()
-        self.top = app.get_webview_window("border-top");
-        self.bottom = app.get_webview_window("border-bottom");
-        self.left = app.get_webview_window("border-left");
-        self.right = app.get_webview_window("border-right");
+/// Connected screens (primary first) with their stable IDs.
+fn screens_with_ids(mtm: MainThreadMarker) -> Vec<(Retained<NSScreen>, String)> {
+    let screens: Vec<Retained<NSScreen>> = NSScreen::screens(mtm).iter().collect();
+    let hw: Vec<DisplayHardware> = screens.iter().map(|s| hardware(s)).collect();
+    screens.into_iter().zip(stable_ids(&hw)).collect()
+}
 
-        // Verify all four windows exist
-        if self.top.is_none()
-            || self.bottom.is_none()
-            || self.left.is_none()
-            || self.right.is_none()
-        {
-            return Err("one or more border windows not found".into());
-        }
-
-        // Apply NSWindow configuration to each border window
-        for window in self.windows() {
-            if let Err(e) = Self::configure_ns_window(window) {
-                eprintln!("Failed to configure NSWindow for '{}': {e}", window.label());
-            }
-        }
-
-        Ok(())
-    }
-
-    fn position_borders(
-        &self,
-        screen_x: f64,
-        screen_y: f64,
-        screen_w: f64,
-        screen_h: f64,
-        thickness: f64,
-    ) {
-        // macOS uses bottom-left origin. NSWindow setFrame handles this natively.
-        // Layout with inset side windows to avoid corner overlap:
-        //   Top:    full width, at the top edge
-        //   Bottom: full width, at the bottom edge
-        //   Left:   inset vertically by thickness on both ends
-        //   Right:  inset vertically by thickness on both ends
-
-        if let Some(ref w) = self.top {
-            if let Err(e) = Self::set_window_frame(
-                w,
-                screen_x,
-                screen_y + screen_h - thickness,
-                screen_w,
-                thickness,
-            ) {
-                eprintln!("Failed to position border-top: {e}");
-            }
-        }
-
-        if let Some(ref w) = self.bottom {
-            if let Err(e) = Self::set_window_frame(w, screen_x, screen_y, screen_w, thickness) {
-                eprintln!("Failed to position border-bottom: {e}");
-            }
-        }
-
-        if let Some(ref w) = self.left {
-            if let Err(e) = Self::set_window_frame(
-                w,
-                screen_x,
-                screen_y + thickness,
-                thickness,
-                screen_h - 2.0 * thickness,
-            ) {
-                eprintln!("Failed to position border-left: {e}");
-            }
-        }
-
-        if let Some(ref w) = self.right {
-            if let Err(e) = Self::set_window_frame(
-                w,
-                screen_x + screen_w - thickness,
-                screen_y + thickness,
-                thickness,
-                screen_h - 2.0 * thickness,
-            ) {
-                eprintln!("Failed to position border-right: {e}");
-            }
+/// Find the screen for a display ID; `"primary"` (or an unknown ID, e.g. a
+/// disconnected display) means the primary display.
+fn screen_for_id(mtm: MainThreadMarker, id: &str) -> Option<Retained<NSScreen>> {
+    if id != "primary" {
+        if let Some((screen, _)) = screens_with_ids(mtm).into_iter().find(|(_, sid)| sid == id) {
+            return Some(screen);
         }
     }
+    primary_screen(mtm)
+}
 
-    fn show(&self) {
-        // Apply NSWindow config and show each window
-        for window in self.windows() {
-            if let Err(e) = Self::configure_ns_window(window) {
-                eprintln!("Failed to configure NSWindow for '{}': {e}", window.label());
-            }
-            if let Err(e) = window.show() {
-                eprintln!("Failed to show '{}': {e}", window.label());
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {
+    fn CGDisplayVendorNumber(display: u32) -> u32;
+    fn CGDisplayModelNumber(display: u32) -> u32;
+    fn CGDisplaySerialNumber(display: u32) -> u32;
+}
+
+fn to_rect(r: NSRect) -> Rect {
+    Rect::new(r.origin.x, r.origin.y, r.size.width, r.size.height)
+}
+
+fn to_ns(r: Rect) -> NSRect {
+    NSRect::new(NSPoint::new(r.x, r.y), NSSize::new(r.w, r.h))
+}
+
+/// Edges macOS reserves (menu bar, Dock) on the display `monitor_id`.
+/// Main thread only.
+pub fn reserved_edges_for(mtm: MainThreadMarker, monitor_id: &str) -> Edges {
+    match screen_for_id(mtm, monitor_id) {
+        Some(screen) => reserved_edges(to_rect(screen.frame()), to_rect(screen.visibleFrame())),
+        None => Edges::ALL,
+    }
+}
+
+/// Read the system display preferences. Main thread only.
+pub fn display_prefs(mtm: MainThreadMarker) -> DisplayPrefs {
+    let ws = NSWorkspace::sharedWorkspace();
+    let appearance = NSApplication::sharedApplication(mtm).effectiveAppearance();
+    DisplayPrefs {
+        reduce_motion: ws.accessibilityDisplayShouldReduceMotion(),
+        reduce_transparency: ws.accessibilityDisplayShouldReduceTransparency(),
+        increase_contrast: ws.accessibilityDisplayShouldIncreaseContrast(),
+        dark: appearance.name().to_string().contains("Dark"),
+    }
+}
+
+/// Whether another app is fullscreen on the display with AppKit `frame`.
+fn display_is_fullscreen(mtm: MainThreadMarker, frame: Rect) -> bool {
+    let Some(primary_h) = primary_screen(mtm).map(|s| s.frame().size.height) else {
+        return false;
+    };
+    let display = appkit_to_cg(frame, primary_h);
+    let own_pid = std::process::id() as i64;
+    let windows: Vec<Rect> = macos_reserve::on_screen_windows()
+        .into_iter()
+        .filter(|w| w.layer == 0 && w.pid != own_pid && w.alpha > 0.0)
+        .map(|w| w.bounds)
+        .collect();
+    has_fullscreen_window(&windows, display)
+}
+
+/// The layout for `config` on `screen` right now, including the opaque-menu
+/// bar and fullscreen adjustments.
+fn current_layout(mtm: MainThreadMarker, screen: &NSScreen, config: &LayoutConfig) -> Layout {
+    let frame = to_rect(screen.frame());
+    let visible = to_rect(screen.visibleFrame());
+    let mut layout = compute_layout(config.mode, frame, visible, config.thickness, config.edges);
+    if config.mode == BorderMode::Fit && display_prefs(mtm).reduce_transparency {
+        layout = for_opaque_menu_bar(layout, frame, visible, config.thickness);
+    }
+    if config.mode != BorderMode::Overlay && display_is_fullscreen(mtm, frame) {
+        layout = for_fullscreen(layout, config.mode, frame, config.thickness);
+    }
+    layout
+}
+
+/// Layouts for every connected display the border is enabled on, with the
+/// screens they belong to.
+fn current_layouts(
+    mtm: MainThreadMarker,
+    config: &LayoutConfig,
+) -> Vec<(String, Retained<NSScreen>, Layout)> {
+    screens_with_ids(mtm)
+        .into_iter()
+        .filter(|(_, id)| !config.disabled.contains(id))
+        .map(|(screen, id)| {
+            let layout = current_layout(mtm, &screen, config);
+            (id, screen, layout)
+        })
+        .collect()
+}
+
+/// Lay the border out for `config` on every enabled display and draw it.
+/// Main thread only.
+pub fn configure_and_apply(app: &tauri::AppHandle, config: &LayoutConfig) {
+    // SAFETY: callers run on the main thread (setup / run_on_main_thread).
+    let mtm = unsafe { MainThreadMarker::new_unchecked() };
+    let Some(primary_h) = primary_screen(mtm).map(|s| s.frame().size.height) else {
+        eprintln!("[overlay] no screens");
+        return;
+    };
+
+    let displays = current_layouts(mtm, config);
+    let mut all_shapes = Vec::new();
+    let mut targets = Vec::new();
+    for (_, screen, layout) in &displays {
+        all_shapes.extend(shapes(layout, config.edges, config.thickness));
+        // Hand each reserved area to the Accessibility enforcer in
+        // CoreGraphics coordinates.
+        if let Some(area) = layout.reserved {
+            targets.push(macos_reserve::Target {
+                area: appkit_to_cg(area, primary_h),
+                outer: appkit_to_cg(to_rect(screen.visibleFrame()), primary_h),
+                display: appkit_to_cg(to_rect(screen.frame()), primary_h),
+            });
+        }
+    }
+    macos_render::set_shapes(mtm, &all_shapes);
+    macos_reserve::set_targets(targets);
+
+    if let Some(primary) = primary_screen(mtm) {
+        park_engine_window(app, to_rect(primary.frame()));
+    }
+
+    if let Ok(mut last) = LAST_APPLIED.lock() {
+        let layouts = displays.into_iter().map(|(id, _, l)| (id, l)).collect();
+        *last = Some((config.clone(), layouts));
+    }
+}
+
+/// Mark the engine webview as loaded and park it. Main thread only.
+pub fn engine_loaded(app: &tauri::AppHandle) {
+    ENGINE_LOADED.store(true, Ordering::SeqCst);
+    // SAFETY: called via run_on_main_thread.
+    let mtm = unsafe { MainThreadMarker::new_unchecked() };
+    if let Some(primary) = primary_screen(mtm) {
+        park_engine_window(app, to_rect(primary.frame()));
+    }
+}
+
+/// Keep the engine webview on screen as a click-through 1pt window in the
+/// display's top-left corner. It draws nothing (the overlay script knows the
+/// native renderer is in charge); it only has to stay visible to WebKit so
+/// its 1 Hz timer isn't throttled. No-op until the page has loaded.
+fn park_engine_window(app: &tauri::AppHandle, display: Rect) {
+    if !ENGINE_LOADED.load(Ordering::SeqCst) {
+        return;
+    }
+    let Some(window) = app.get_webview_window(ENGINE_LABEL) else {
+        return;
+    };
+    let Ok(ptr) = window.ns_window() else {
+        return;
+    };
+    // SAFETY: valid NSWindow owned by the WebviewWindow; main thread.
+    let ns_window: &NSWindow = unsafe { &*(ptr as *const NSWindow) };
+    ns_window.setLevel(LEVEL_STATUS);
+    ns_window.setCollectionBehavior(
+        NSWindowCollectionBehavior::CanJoinAllSpaces
+            | NSWindowCollectionBehavior::Stationary
+            | NSWindowCollectionBehavior::IgnoresCycle
+            | NSWindowCollectionBehavior::FullScreenAuxiliary
+            | NSWindowCollectionBehavior::CanJoinAllApplications,
+    );
+    ns_window.setIgnoresMouseEvents(true);
+    ns_window.setHasShadow(false);
+    let speck = Rect::new(display.x, display.max_y() - 1.0, 1.0, 1.0);
+    ns_window.setFrame_display(to_ns(speck), false);
+    // Not Tauri's show(): that goes through makeKeyAndOrderFront and would
+    // steal focus from the user's app.
+    ns_window.orderFrontRegardless();
+}
+
+/// Re-apply the last config if any display's geometry changed (Dock moved,
+/// resized or auto-hide toggled; menu bar auto-hide; displays connected,
+/// disconnected or rearranged; an app entered or left fullscreen; Reduce
+/// Transparency toggled), and broadcast display-preference and hot-plug
+/// changes. Cheap enough to call every couple of seconds. Main thread only.
+pub fn refresh_if_geometry_changed(app: &tauri::AppHandle) {
+    // SAFETY: called via run_on_main_thread.
+    let mtm = unsafe { MainThreadMarker::new_unchecked() };
+
+    // Broadcast accessibility / appearance changes to the engine.
+    let prefs = display_prefs(mtm);
+    if let Ok(mut last) = LAST_PREFS.lock() {
+        if *last != Some(prefs) {
+            *last = Some(prefs);
+            let _ = app.emit("display-prefs-changed", prefs);
+        }
+    }
+
+    // Announce displays being connected / disconnected (Settings listens).
+    let ids: Vec<String> = screens_with_ids(mtm)
+        .into_iter()
+        .map(|(_, id)| id)
+        .collect();
+    if let Ok(mut last) = LAST_SCREEN_IDS.lock() {
+        if *last != ids {
+            let first = last.is_empty();
+            *last = ids;
+            if !first {
+                let _ = app.emit("displays-changed", ());
             }
         }
     }
 
-    fn hide(&self) {
-        for window in self.windows() {
-            if let Err(e) = window.hide() {
-                eprintln!("Failed to hide '{}': {e}", window.label());
-            }
-        }
-    }
-
-    fn set_thickness(&self, thickness: f64) {
-        // Get the target screen frame and reposition with new thickness
-        if let Some(frame) = Self::screen_frame_for_id(&self.target_monitor) {
-            self.position_borders(
-                frame.origin.x,
-                frame.origin.y,
-                frame.size.width,
-                frame.size.height,
-                thickness,
-            );
-        } else {
-            eprintln!(
-                "Failed to get screen frame for set_thickness (target: {})",
-                self.target_monitor
-            );
-        }
-    }
-
-    fn set_target_monitor(&mut self, monitor_id: &str) {
-        self.target_monitor = monitor_id.to_string();
+    let Some((config, previous)) = LAST_APPLIED.lock().ok().and_then(|l| l.clone()) else {
+        return;
+    };
+    let now: DisplayLayouts = current_layouts(mtm, &config)
+        .into_iter()
+        .map(|(id, _, l)| (id, l))
+        .collect();
+    if now != previous {
+        configure_and_apply(app, &config);
     }
 }

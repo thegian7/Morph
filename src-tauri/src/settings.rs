@@ -9,6 +9,7 @@ const DB_URL: &str = "sqlite:morph.db";
 const DEFAULT_SETTINGS: &[(&str, &str)] = &[
     ("border_thickness", "medium"),
     ("border_position", "all"),
+    ("border_mode", "fit"),
     ("color_palette", "ambient"),
     ("color_intensity", "normal"),
     ("warning_30min", "true"),
@@ -18,6 +19,7 @@ const DEFAULT_SETTINGS: &[(&str, &str)] = &[
     ("poll_interval_seconds", "60"),
     ("launch_at_login", "false"),
     ("selected_display", "primary"),
+    ("disabled_displays", "[]"),
     ("onboarding_complete", "false"),
     ("ignored_calendar_ids", "[]"),
 ];

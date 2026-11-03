@@ -10,6 +10,12 @@ body {
     sans-serif;
 }
 
+/* macOS: the window has native Popover vibrancy; let it show through. */
+html.vibrant,
+html.vibrant body {
+  background: transparent;
+}
+
 /* Tray quick actions get a visible button affordance on top of .icon-btn */
 .quick-action {
   padding: 6px var(--space-3);
