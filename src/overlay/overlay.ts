@@ -100,6 +100,11 @@ let pausedUntilNextEventSince: number | null = null;
 let lastState: BorderStatePayload | null = null;
 /** Last state broadcast to the tray (leader window only). */
 let lastEmitted: BorderStatePayload | null = null;
+/** True when the border is drawn natively (macOS) and this webview only
+ *  runs the color engine. */
+let nativeBorder = false;
+/** Last look sent to the native renderer. */
+let lastRendered: BorderStatePayload | null = null;
 
 /** Per-threshold enablement backing `userSettings.warningWindows`. */
 const WARNING_SETTING_MINUTES: Record<string, number> = {
@@ -268,6 +273,24 @@ function computeAndApply(
     emit('border-state-update', globalState).catch(() => {});
   }
 
+  // Native rendering (macOS): this window only runs the engine. Send the
+  // look — display preferences applied, edges left to the native side — and
+  // draw nothing here.
+  if (nativeBorder) {
+    if (windowLabel === 'border-top') {
+      const render = applyDisplayPrefs(globalState, displayPrefs);
+      if (!stateUnchanged(lastRendered, render)) {
+        lastRendered = render;
+        emit('border-render', render).catch(() => {});
+      }
+    }
+    if (!stateUnchanged(lastState, HIDDEN_STATE)) {
+      lastState = HIDDEN_STATE;
+      pulse.update(HIDDEN_STATE);
+    }
+    return;
+  }
+
   // Hide this window if it's not active for the current position setting
   const display = isWindowActiveForPosition(windowLabel, userSettings.borderPosition)
     ? applyDisplayPrefs(globalState, displayPrefs)
@@ -291,6 +314,12 @@ async function setup() {
 
   // Load initial settings from the backend
   await loadInitialSettings();
+
+  try {
+    nativeBorder = await invoke<boolean>('uses_native_border');
+  } catch {
+    nativeBorder = false;
+  }
 
   // Listen for calendar events from the Rust poller
   await listen<CalendarEvent[]>('calendar-events-update', (event) => {
@@ -319,6 +348,7 @@ async function setup() {
   await listen<DisplayPrefs>('display-prefs-changed', (event) => {
     displayPrefs = event.payload;
     lastState = null;
+    lastRendered = null;
   });
 
   // Listen for border pause events.

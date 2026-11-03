@@ -454,6 +454,20 @@ pub fn run() {
                 .add_migrations("sqlite:morph.db", migrations)
                 .build(),
         )
+        .on_page_load(|webview, payload| {
+            #[cfg(target_os = "macos")]
+            if webview.label() == window_manager::macos::ENGINE_LABEL
+                && matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)
+            {
+                let handle = webview.app_handle().clone();
+                let h = handle.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    window_manager::macos::engine_loaded(&h);
+                });
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (webview, payload);
+        })
         .invoke_handler(tauri::generate_handler![
             settings::get_setting,
             settings::set_setting,
@@ -469,6 +483,7 @@ pub fn run() {
             accessibility_status,
             request_accessibility,
             get_display_prefs,
+            uses_native_border,
         ])
         .setup(|app| {
             // Menu-bar (agent) app: no Dock icon, and its windows may join
@@ -478,26 +493,56 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-            // Border overlay windows are declared in tauri.conf.json.
-            // Show them first so the webview loads and JS initializes,
-            // then apply macOS NSWindow config after a delay.
-            // (Applying NSWindow config before webview load kills JS execution.)
+            // macOS draws the border natively (window_manager::macos_render).
+            // Of the four border webviews declared in tauri.conf.json only
+            // `border-top` is kept, to run the color engine; the other three
+            // are destroyed. No startup delay: the native windows don't
+            // depend on any webview, and the engine window is configured
+            // from on_page_load once its page has loaded.
             #[cfg(target_os = "macos")]
             {
-                // Show windows immediately so webview can load
-                for label in ["border-top", "border-bottom", "border-left", "border-right"] {
+                for label in ["border-bottom", "border-left", "border-right"] {
                     if let Some(w) = app.get_webview_window(label) {
-                        if let Err(e) = w.show() {
-                            eprintln!("Failed to show '{label}': {e}");
+                        if let Err(e) = w.destroy() {
+                            eprintln!("Failed to destroy '{label}': {e}");
                         }
                     }
                 }
+                if let Some(w) = app.get_webview_window(window_manager::macos::ENGINE_LABEL) {
+                    if let Err(e) = w.show() {
+                        eprintln!("Failed to show color engine window: {e}");
+                    }
+                }
 
-                // Apply NSWindow overlay config after webview has loaded
+                // The engine's computed look → native renderer.
+                let render_handle = app.handle().clone();
+                app.listen("border-render", move |event| {
+                    #[derive(serde::Deserialize)]
+                    #[serde(rename_all = "camelCase")]
+                    struct Render {
+                        color: String,
+                        opacity: f64,
+                        pulse_speed: f64,
+                    }
+                    let Ok(r) = serde_json::from_str::<Render>(event.payload()) else {
+                        return;
+                    };
+                    let Some(state) = window_manager::macos_render::RenderState::from_payload(
+                        &r.color,
+                        r.opacity,
+                        r.pulse_speed,
+                    ) else {
+                        return;
+                    };
+                    let _ = render_handle.run_on_main_thread(move || {
+                        // SAFETY: run_on_main_thread.
+                        let mtm = unsafe { objc2_foundation::MainThreadMarker::new_unchecked() };
+                        window_manager::macos_render::set_state(mtm, state);
+                    });
+                });
+
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    // Give webviews time to load HTML and initialize JS
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     relayout_borders(&handle).await;
 
                     // Follow the Dock and menu bar: when they move, resize or
@@ -875,6 +920,13 @@ fn get_display_prefs() -> window_manager::DisplayPrefs {
     {
         window_manager::DisplayPrefs::default()
     }
+}
+
+/// Whether the border is drawn natively (macOS). When true the overlay
+/// webview only runs the color engine and emits `border-render`.
+#[tauri::command]
+fn uses_native_border() -> bool {
+    cfg!(target_os = "macos")
 }
 
 /// Whether the app has macOS Accessibility access (needed by "Reserve space").

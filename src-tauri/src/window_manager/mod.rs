@@ -4,6 +4,9 @@ pub mod layout;
 pub mod macos;
 
 #[cfg(target_os = "macos")]
+pub mod macos_render;
+
+#[cfg(target_os = "macos")]
 pub mod macos_reserve;
 
 #[cfg(target_os = "windows")]

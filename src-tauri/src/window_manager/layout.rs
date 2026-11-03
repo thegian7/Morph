@@ -131,6 +131,10 @@ pub struct Layout {
     /// In `Reserve` mode, the area other windows must stay inside
     /// (AppKit coordinates). `None` in other modes.
     pub reserved: Option<Rect>,
+    /// For frame-shaped modes (`Reserve`, `Overlay`): the outer edge of the
+    /// border, which the native renderer draws as one shape with rounded
+    /// inner corners. `None` for `Fit`, whose strips sit at different levels.
+    pub outer: Option<Rect>,
 }
 
 /// Compute the four border strips for a display.
@@ -195,6 +199,7 @@ fn fit_layout(frame: Rect, visible: Rect, thickness: f64) -> Layout {
         left: left.and_then(dock),
         right: right.and_then(dock),
         reserved: None,
+        outer: None,
     }
 }
 
@@ -238,6 +243,7 @@ fn reserve_layout(visible: Rect, t: f64, edges: Edges) -> Layout {
         left,
         right,
         reserved: Some(reserved),
+        outer: Some(v),
     }
 }
 
@@ -255,6 +261,7 @@ fn overlay_layout(f: Rect, t: f64) -> Layout {
         left: strip(Rect::new(f.x, f.y + t, t, side_h)),
         right: strip(Rect::new(f.max_x() - t, f.y + t, t, side_h)),
         reserved: None,
+        outer: Some(f),
     }
 }
 
@@ -307,7 +314,78 @@ pub fn for_fullscreen(layout: Layout, mode: BorderMode, frame: Rect, thickness: 
         left: None,
         right: None,
         reserved: None,
+        outer: None,
     }
+}
+
+/// What a native border window draws.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ShapeKind {
+    /// Fill the whole window.
+    Fill,
+    /// Fill the window except `inner` (same coordinates as the window frame),
+    /// whose corners are rounded by `radius` — a picture-frame border.
+    Frame { inner: Rect, radius: f64 },
+}
+
+/// One native border window: where it goes, its level, what it draws.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Shape {
+    pub frame: Rect,
+    pub level: isize,
+    pub kind: ShapeKind,
+}
+
+/// Inner corner radius for frame-shaped borders, scaled with thickness so
+/// a thin border gets a subtle curve and a thick one roughly matches a
+/// display's rounded corners.
+pub fn inner_radius(thickness: f64) -> f64 {
+    (thickness * 0.75).clamp(4.0, 12.0)
+}
+
+/// Turn a layout into native windows, honoring the enabled `edges` in every
+/// mode (the webview overlay used to hide disabled edges with opacity).
+pub fn shapes(layout: &Layout, edges: Edges, thickness: f64) -> Vec<Shape> {
+    if let Some(outer) = layout.outer {
+        // One picture-frame window. Insets on enabled edges; on disabled
+        // edges the inner rect is pushed past the outer edge so its rounded
+        // corners fall outside the window instead of leaving curved slivers.
+        if !(edges.top || edges.bottom || edges.left || edges.right) {
+            return Vec::new();
+        }
+        let r = inner_radius(thickness);
+        let past = r + 1.0;
+        let left = if edges.left { thickness } else { -past };
+        let right = if edges.right { thickness } else { -past };
+        let bottom = if edges.bottom { thickness } else { -past };
+        let top = if edges.top { thickness } else { -past };
+        let inner = Rect::new(
+            outer.x + left,
+            outer.y + bottom,
+            (outer.w - left - right).max(0.0),
+            (outer.h - bottom - top).max(0.0),
+        );
+        return vec![Shape {
+            frame: outer,
+            level: LEVEL_STATUS,
+            kind: ShapeKind::Frame { inner, radius: r },
+        }];
+    }
+
+    [
+        (layout.top, edges.top),
+        (layout.bottom, edges.bottom),
+        (layout.left, edges.left),
+        (layout.right, edges.right),
+    ]
+    .into_iter()
+    .filter_map(|(strip, on)| strip.filter(|_| on))
+    .map(|s| Shape {
+        frame: s.rect,
+        level: s.level,
+        kind: ShapeKind::Fill,
+    })
+    .collect()
 }
 
 /// Convert an AppKit rect (bottom-left origin) to CoreGraphics/Accessibility
@@ -717,5 +795,89 @@ mod tests {
         let vis = Rect::new(0.0, 64.0, 1512.0, 918.0);
         let base = compute_layout(BorderMode::Fit, FRAME, vis, 16.0, Edges::ALL);
         assert_eq!(for_opaque_menu_bar(base, FRAME, vis, 16.0), base);
+    }
+
+    #[test]
+    fn shapes_reserve_all_edges_is_one_frame_around_the_reserved_area() {
+        let l = compute_layout(
+            BorderMode::Reserve,
+            FRAME,
+            VIS_DOCK_BOTTOM,
+            16.0,
+            Edges::ALL,
+        );
+        let s = shapes(&l, Edges::ALL, 16.0);
+        assert_eq!(s.len(), 1);
+        approx(s[0].frame, VIS_DOCK_BOTTOM);
+        assert_eq!(s[0].level, LEVEL_STATUS);
+        match s[0].kind {
+            ShapeKind::Frame { inner, radius } => {
+                approx(inner, l.reserved.unwrap());
+                assert_eq!(radius, 12.0);
+            }
+            other => panic!("expected frame, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn shapes_frame_pushes_inner_past_disabled_edges() {
+        let edges = Edges::from_position("top");
+        let l = compute_layout(BorderMode::Reserve, FRAME, VIS_DOCK_BOTTOM, 16.0, edges);
+        let s = shapes(&l, edges, 16.0);
+        let ShapeKind::Frame { inner, radius } = s[0].kind else {
+            panic!("expected frame")
+        };
+        let v = VIS_DOCK_BOTTOM;
+        assert!(inner.x < v.x - radius, "left corners must fall outside");
+        assert!(inner.max_x() > v.max_x() + radius);
+        assert!(inner.y < v.y - radius);
+        assert!(
+            (inner.max_y() - (v.max_y() - 16.0)).abs() < 1e-9,
+            "top is inset"
+        );
+    }
+
+    #[test]
+    fn shapes_overlay_honors_edges() {
+        let edges = Edges::from_position("sides");
+        let l = compute_layout(BorderMode::Overlay, FRAME, VIS_DOCK_BOTTOM, 8.0, edges);
+        let ShapeKind::Frame { inner, .. } = shapes(&l, edges, 8.0)[0].kind else {
+            panic!("expected frame")
+        };
+        approx(
+            Rect::new(inner.x, 0.0, inner.w, 0.0),
+            Rect::new(8.0, 0.0, 1496.0, 0.0),
+        );
+        assert!(inner.y < 0.0 && inner.max_y() > 982.0, "top/bottom open");
+    }
+
+    #[test]
+    fn shapes_fit_filters_disabled_edges() {
+        let l = compute_layout(BorderMode::Fit, FRAME, VIS_DOCK_BOTTOM, 16.0, Edges::ALL);
+        assert_eq!(shapes(&l, Edges::ALL, 16.0).len(), 2);
+        let only_top = shapes(&l, Edges::from_position("top"), 16.0);
+        assert_eq!(only_top.len(), 1);
+        assert_eq!(only_top[0].level, LEVEL_MENU_TINT);
+        assert_eq!(only_top[0].kind, ShapeKind::Fill);
+        assert!(shapes(&l, Edges::from_position("sides"), 16.0).is_empty());
+    }
+
+    #[test]
+    fn shapes_fullscreen_is_a_plain_top_hairline() {
+        for mode in [BorderMode::Fit, BorderMode::Reserve] {
+            let base = compute_layout(mode, FRAME, VIS_DOCK_BOTTOM, 16.0, Edges::ALL);
+            let s = shapes(&for_fullscreen(base, mode, FRAME, 16.0), Edges::ALL, 16.0);
+            assert_eq!(s.len(), 1);
+            assert_eq!(s[0].kind, ShapeKind::Fill);
+            assert_eq!(s[0].frame.h, AUTOHIDE_MENU_FALLBACK);
+        }
+    }
+
+    #[test]
+    fn inner_radius_scales_and_clamps() {
+        assert_eq!(inner_radius(2.0), 4.0);
+        assert_eq!(inner_radius(8.0), 6.0);
+        assert_eq!(inner_radius(16.0), 12.0);
+        assert_eq!(inner_radius(28.0), 12.0);
     }
 }
