@@ -13,18 +13,21 @@ Ambient screen border overlay that changes color based on upcoming calendar even
 ## macOS: Native Border, Webview Color Engine
 
 The border on macOS is drawn by `window_manager/macos_render.rs`. Each `layout::Shape` becomes a borderless, click-through `MorphBorderWindow` (an NSWindow subclass that overrides `constrainFrameRect:toScreen:` so the menu-bar tint can sit under the menu bar). Each window hosts one `CAShapeLayer`:
+
 - Fit-mode strips are plain fills.
 - Reserve and Overlay modes are a single picture-frame window with rounded inner corners (even-odd fill, radius `layout::inner_radius`).
 
 Color and opacity cross-fade over 2 s, and the pulse is an autoreversing Core Animation opacity animation. The GPU does that work; no JavaScript runs per frame.
 
 The color engine stays in TypeScript and runs in the `border-top` webview. The other three border webviews are destroyed in `setup()`. Every second the engine emits:
+
 - `border-render`, the look with display preferences applied, which the native renderer consumes;
 - `border-state-update`, the raw state, which the tray consumes.
 
 Rust, not the overlay script, decides which edges show (`layout::shapes`).
 
 **Critical constraints for the engine webview:**
+
 - Don't configure its NSWindow (level, `setIgnoresMouseEvents`, collection behavior) until its page has loaded, or WKWebView never runs its JavaScript. `Builder::on_page_load` (Finished) calls `macos::engine_loaded`, which parks it.
 - It has to stay on screen. A hidden webview is throttled even with `backgroundThrottling: "disabled"`: measured gaps were up to 18 s, then 2 s ticks. Parked as a click-through 1pt window at level 25 in the display's top-left corner, it ticks steadily at 1 Hz. The overlay script draws nothing when `uses_native_border` returns true.
 
@@ -39,6 +42,7 @@ Geometry is pure and unit-tested in `src-tauri/src/window_manager/layout.rs`; `m
 - `overlay`: a frame around the full display at level 25 (it used to be 1000, which covered menus, Spotlight and Notification Center).
 
 Gotchas:
+
 - AppKit pushes windows below menu-bar level out from under the menu bar, which is why native border windows use the `MorphBorderWindow` subclass. Never re-class Tao's windows (`object_setClass`) to get the same effect: they're KVO-observed (`NSKVONotifying_TaoWindow`), and re-classing crashes with a segfault.
 - Relayout uses `orderFrontRegardless`, not Tauri `show()`, which would steal focus.
 - A 2 s main-thread poll (`refresh_if_geometry_changed`) re-applies the layout when the Dock or menu bar changes size, position or auto-hide, or when an app enters or leaves fullscreen.
@@ -65,7 +69,7 @@ In Fit mode, Settings → Border shows what will actually be drawn. `useReserved
 
 - **One tray icon**, built in `tray::setup_tray`. `tauri.conf.json` must not declare `app.trayIcon` too; that used to add a second, dead icon.
 - **Left-click** toggles the popover (`tray_popover.rs`). **Right-click** pops up the menu (`tray::popup_menu_under`, shown via the engine webview).
-- **The menu isn't attached to the status item on macOS.** tray-icon 0.21 sets `NSStatusItem.menu` at creation, and AppKit then opens that menu on *every* click, so `Click` events never arrive and the popover was unreachable. Menu events are handled through `AppHandle::on_menu_event`. `update_tray_menu` stores the menu in `TrayState::menu` instead of re-attaching it.
+- **The menu isn't attached to the status item on macOS.** tray-icon 0.21 sets `NSStatusItem.menu` at creation, and AppKit then opens that menu on _every_ click, so `Click` events never arrive and the popover was unreachable. Menu events are handled through `AppHandle::on_menu_event`. `update_tray_menu` stores the menu in `TrayState::menu` instead of re-attaching it.
 - **The popover is created hidden at startup** and hidden or shown after that, never closed, so it opens instantly.
   - It's frosted (`Effect::Popover`, state `Active`, 10pt radius) under a translucent page tint (`html.vibrant`), with a window shadow.
   - It's centered under the icon (`popover_origin`, physical pixels, clamped to the monitor).
