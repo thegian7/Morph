@@ -165,16 +165,16 @@ fn enforce_loop() {
     }
 }
 
-struct WindowInfo {
-    number: i64,
-    pid: i64,
-    layer: i64,
-    alpha: f64,
-    bounds: Rect,
+pub(crate) struct WindowInfo {
+    pub number: i64,
+    pub pid: i64,
+    pub layer: i64,
+    pub alpha: f64,
+    pub bounds: Rect,
 }
 
 /// Snapshot of on-screen windows (front to back), CG coordinates.
-fn on_screen_windows() -> Vec<WindowInfo> {
+pub(crate) fn on_screen_windows() -> Vec<WindowInfo> {
     let mut out = Vec::new();
     // SAFETY: we own the returned array (Copy rule) and release it; values
     // read from it are borrowed for the duration of the loop.

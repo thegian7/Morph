@@ -1,6 +1,6 @@
 use super::layout::{
-    appkit_to_cg, compute_layout, BorderMode, Edges, Layout, Rect, Strip, LEVEL_DOCK_TINT,
-    LEVEL_MENU_TINT,
+    appkit_to_cg, compute_layout, for_fullscreen, has_fullscreen_window, BorderMode, Edges, Layout,
+    Rect, Strip, LEVEL_DOCK_TINT, LEVEL_MENU_TINT,
 };
 use super::{macos_reserve, MonitorInfo, OverlayManager};
 use objc2::ffi::{class_addMethod, method_getImplementation, method_getTypeEncoding};
@@ -140,6 +140,34 @@ fn to_ns(r: Rect) -> NSRect {
     NSRect::new(NSPoint::new(r.x, r.y), NSSize::new(r.w, r.h))
 }
 
+/// Whether another app is fullscreen on the display with AppKit `frame`.
+fn display_is_fullscreen(mtm: MainThreadMarker, frame: Rect) -> bool {
+    let Some(primary_h) = primary_screen(mtm).map(|s| s.frame().size.height) else {
+        return false;
+    };
+    let display = appkit_to_cg(frame, primary_h);
+    let own_pid = std::process::id() as i64;
+    let windows: Vec<Rect> = macos_reserve::on_screen_windows()
+        .into_iter()
+        .filter(|w| w.layer == 0 && w.pid != own_pid && w.alpha > 0.0)
+        .map(|w| w.bounds)
+        .collect();
+    has_fullscreen_window(&windows, display)
+}
+
+/// The layout for `config` on `screen` right now, including the fullscreen
+/// adjustment.
+fn current_layout(mtm: MainThreadMarker, screen: &NSScreen, config: &LayoutConfig) -> Layout {
+    let frame = to_rect(screen.frame());
+    let visible = to_rect(screen.visibleFrame());
+    let layout = compute_layout(config.mode, frame, visible, config.thickness, config.edges);
+    if config.mode != BorderMode::Overlay && display_is_fullscreen(mtm, frame) {
+        for_fullscreen(layout, config.mode, frame, config.thickness)
+    } else {
+        layout
+    }
+}
+
 impl MacOSOverlayManager {
     pub fn new() -> Self {
         Self {
@@ -168,13 +196,16 @@ impl MacOSOverlayManager {
 
         install_constraint_override();
 
-        // Appear on all Spaces, persist through Mission Control, excluded
-        // from Cmd+Tab, and allowed alongside fullscreen apps.
+        // Appear on all Spaces (including other apps' fullscreen Spaces),
+        // persist through Mission Control, excluded from Cmd+Tab.
         ns_window.setCollectionBehavior(
             NSWindowCollectionBehavior::CanJoinAllSpaces
                 | NSWindowCollectionBehavior::Stationary
                 | NSWindowCollectionBehavior::IgnoresCycle
-                | NSWindowCollectionBehavior::FullScreenAuxiliary,
+                | NSWindowCollectionBehavior::FullScreenAuxiliary
+                // macOS 13+: also join *other* apps' fullscreen Spaces, so
+                // the hairline shows over a fullscreen video or deck.
+                | NSWindowCollectionBehavior::CanJoinAllApplications,
         );
 
         // Click-through at the NSWindow level (belt-and-suspenders with Tauri's click-through)
@@ -241,7 +272,7 @@ impl MacOSOverlayManager {
         let screen = Self::screen_for_id(mtm, &config.monitor_id)?;
         let frame = to_rect(screen.frame());
         let visible = to_rect(screen.visibleFrame());
-        let layout = compute_layout(config.mode, frame, visible, config.thickness, config.edges);
+        let layout = current_layout(mtm, &screen, config);
 
         let strips = [layout.top, layout.bottom, layout.left, layout.right];
         for (i, (window, strip)) in self.slots().into_iter().zip(strips).enumerate() {
@@ -309,7 +340,8 @@ pub fn configure_and_apply(app: &tauri::AppHandle, config: &LayoutConfig) {
 
 /// Re-apply the last config if the target display's geometry changed (Dock
 /// moved, resized or auto-hide toggled; menu bar auto-hide; display
-/// rearranged). Cheap enough to call every couple of seconds. Main thread only.
+/// rearranged; an app entered or left fullscreen). Cheap enough to call every
+/// couple of seconds. Main thread only.
 pub fn refresh_if_geometry_changed(app: &tauri::AppHandle) {
     let Some((config, previous)) = LAST_APPLIED.lock().ok().and_then(|l| l.clone()) else {
         return;
@@ -319,13 +351,7 @@ pub fn refresh_if_geometry_changed(app: &tauri::AppHandle) {
     let Some(screen) = MacOSOverlayManager::screen_for_id(mtm, &config.monitor_id) else {
         return;
     };
-    let now = compute_layout(
-        config.mode,
-        to_rect(screen.frame()),
-        to_rect(screen.visibleFrame()),
-        config.thickness,
-        config.edges,
-    );
+    let now = current_layout(mtm, &screen, &config);
     if now != previous {
         configure_and_apply(app, &config);
     }

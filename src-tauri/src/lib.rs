@@ -470,6 +470,13 @@ pub fn run() {
             request_accessibility,
         ])
         .setup(|app| {
+            // Menu-bar (agent) app: no Dock icon, and its windows may join
+            // other apps' fullscreen Spaces. The bundle's Info.plist sets
+            // LSUIElement too; setting it here makes `tauri dev` and the bare
+            // binary behave the same as the shipped app.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             // Border overlay windows are declared in tauri.conf.json.
             // Show them first so the webview loads and JS initializes,
             // then apply macOS NSWindow config after a delay.

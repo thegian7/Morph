@@ -258,6 +258,39 @@ fn overlay_layout(f: Rect, t: f64) -> Layout {
     }
 }
 
+/// Whether any of `windows` covers the whole `display` — i.e. an app is in
+/// native fullscreen (or borderless "windowed fullscreen") on it. Both in the
+/// same coordinate system.
+pub fn has_fullscreen_window(windows: &[Rect], display: Rect) -> bool {
+    windows.iter().any(|w| w.approx_eq(&display, 2.0))
+}
+
+/// Adjust a layout for a display showing a fullscreen app.
+///
+/// The menu bar and Dock hide in fullscreen, so the bands `Fit` paints (and
+/// the strips `Reserve` draws inside the usable area) would land on top of
+/// the app's content — a video, a slide deck, a shared screen. Instead the
+/// border shrinks to a hairline along the top edge, which keeps the ambient
+/// time cue without covering anything that matters, and nothing is reserved.
+/// `Overlay` is the explicit "always on top of everything" choice and is left
+/// alone.
+pub fn for_fullscreen(layout: Layout, mode: BorderMode, frame: Rect, thickness: f64) -> Layout {
+    if mode == BorderMode::Overlay {
+        return layout;
+    }
+    let h = AUTOHIDE_MENU_FALLBACK.min(thickness);
+    Layout {
+        top: Some(Strip {
+            rect: Rect::new(frame.x, frame.max_y() - h, frame.w, h),
+            level: LEVEL_MENU_TINT,
+        }),
+        bottom: None,
+        left: None,
+        right: None,
+        reserved: None,
+    }
+}
+
 /// Convert an AppKit rect (bottom-left origin) to CoreGraphics/Accessibility
 /// global coordinates (top-left origin of the primary display).
 ///
@@ -576,5 +609,62 @@ mod tests {
             fit_into(Rect::new(4800.0, 200.0, 600.0, 400.0), AREA, OUTER),
             Rect::new(4800.0, 200.0, 292.0, 400.0),
         );
+    }
+
+    #[test]
+    fn fullscreen_window_detected_only_when_it_covers_the_display() {
+        let display = Rect::new(0.0, 0.0, 5120.0, 1440.0);
+        assert!(has_fullscreen_window(
+            &[Rect::new(10.0, 30.0, 800.0, 600.0), display],
+            display
+        ));
+        assert!(!has_fullscreen_window(
+            &[Rect::new(0.0, 30.0, 5120.0, 1410.0)], // maximized, not fullscreen
+            display
+        ));
+        assert!(!has_fullscreen_window(&[], display));
+    }
+
+    #[test]
+    fn fullscreen_fit_and_reserve_collapse_to_a_top_hairline() {
+        for mode in [BorderMode::Fit, BorderMode::Reserve] {
+            let base = compute_layout(mode, FRAME, VIS_DOCK_BOTTOM, 16.0, Edges::ALL);
+            let l = for_fullscreen(base, mode, FRAME, 16.0);
+            let top = l.top.expect("leader window stays resident");
+            approx(
+                top.rect,
+                Rect::new(
+                    0.0,
+                    982.0 - AUTOHIDE_MENU_FALLBACK,
+                    1512.0,
+                    AUTOHIDE_MENU_FALLBACK,
+                ),
+            );
+            assert_eq!(top.level, LEVEL_MENU_TINT);
+            assert!(l.bottom.is_none() && l.left.is_none() && l.right.is_none());
+            assert!(
+                l.reserved.is_none(),
+                "nothing to enforce in a fullscreen Space"
+            );
+        }
+    }
+
+    #[test]
+    fn fullscreen_leaves_overlay_untouched() {
+        let base = compute_layout(
+            BorderMode::Overlay,
+            FRAME,
+            VIS_DOCK_BOTTOM,
+            16.0,
+            Edges::ALL,
+        );
+        assert_eq!(for_fullscreen(base, BorderMode::Overlay, FRAME, 16.0), base);
+    }
+
+    #[test]
+    fn fullscreen_hairline_never_exceeds_a_thin_border() {
+        let base = compute_layout(BorderMode::Fit, FRAME, VIS_DOCK_BOTTOM, 2.0, Edges::ALL);
+        let l = for_fullscreen(base, BorderMode::Fit, FRAME, 2.0);
+        assert_eq!(l.top.unwrap().rect.h, 2.0);
     }
 }

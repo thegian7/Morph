@@ -34,7 +34,8 @@ Gotchas:
 - AppKit pushes windows below menu-bar level out from under the menu bar. `macos.rs` adds a `constrainFrameRect:toScreen:` override to `TaoWindow` that leaves tint-level (19/23) windows alone. Don't swap the windows' class (`object_setClass`) instead: Tao windows are KVO-observed (`NSKVONotifying_TaoWindow`), and re-classing them crashes with a segfault.
 - `border-top` is the leader that broadcasts state to the tray, so it is never ordered out. When it has no strip, it's parked as a 1pt speck.
 - Relayout uses `orderFrontRegardless`, not Tauri `show()`, which would steal focus.
-- A 2 s main-thread poll (`refresh_if_geometry_changed`) re-applies the layout when the Dock or menu bar changes size, position or auto-hide.
+- A 2 s main-thread poll (`refresh_if_geometry_changed`) re-applies the layout when the Dock or menu bar changes size, position or auto-hide, or when an app enters or leaves fullscreen.
+- Fullscreen: when another app's layer-0 window covers the whole display, `fit` and `reserve` collapse to a 3pt hairline along the top edge (`layout::for_fullscreen`), and nothing is reserved. `overlay` is left unchanged. Joining other apps' fullscreen Spaces needs both `CanJoinAllApplications` and the Accessory activation policy. `lib.rs` sets Accessory in `setup()`, because the bare dev binary doesn't get `LSUIElement` and would otherwise be a regular app that can't appear there.
 
 ## Multi-Page Vite Setup
 
@@ -54,7 +55,7 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 
 - Rust: `cd src-tauri && cargo test`
 - TypeScript: `npx vitest run` (from project root)
-- Current totals: 117 Rust + 321 TypeScript = 438 tests
+- Current totals: 121 Rust + 321 TypeScript = 442 tests
 
 ## Key Events
 
