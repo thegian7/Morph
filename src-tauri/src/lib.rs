@@ -1,5 +1,6 @@
 pub mod border_state;
 pub mod calendar;
+pub mod login_item;
 pub mod settings;
 pub mod tray;
 pub mod tray_popover;
@@ -487,6 +488,9 @@ pub fn run() {
             uses_native_border,
             get_reserved_edges,
             tray_popover::hide_tray_popover,
+            login_item::get_login_item_status,
+            login_item::set_login_item,
+            login_item::open_login_items_settings,
         ])
         .setup(|app| {
             // Menu-bar (agent) app: no Dock icon, and its windows may join
@@ -566,6 +570,10 @@ pub fn run() {
                 eprintln!("Failed to set up system tray: {e}");
             }
             tray_popover::precreate(app.handle());
+
+            // Move a legacy LaunchAgent login item to SMAppService (bundled
+            // macOS app only; no-op in dev and on other platforms).
+            login_item::migrate(app.handle());
 
             // Restore previously connected calendar providers from the database.
             // Spawned before the poller so providers are available by the first poll cycle.

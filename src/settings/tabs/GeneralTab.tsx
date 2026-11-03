@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
-import { enable, disable } from '@tauri-apps/plugin-autostart';
 import { useSettings } from '../hooks/useSettings';
 import { Toggle, Card, SectionHeader, Chip, Button } from '@/shared/components';
 import { useTheme, type ThemePreference } from '@/shared/hooks/useTheme';
@@ -18,6 +17,17 @@ interface MonitorInfo {
 }
 
 const PAUSE_DURATIONS = [5, 15, 30, 60] as const;
+
+/** Mirrors `login_item::LoginItemStatus` in Rust. */
+export interface LoginItemStatus {
+  enabled: boolean;
+  requiresApproval: boolean;
+  backend: string;
+}
+
+function isLoginItemStatus(v: unknown): v is LoginItemStatus {
+  return typeof v === 'object' && v !== null && 'enabled' in v && 'requiresApproval' in v;
+}
 
 /** Parse the `disabled_displays` setting (JSON array of display IDs). */
 export function parseDisabledDisplays(value: string | undefined): string[] {
@@ -45,7 +55,10 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; swatch: string }[]
 export function GeneralTab() {
   const { getSetting, setSetting } = useSettings();
   const { preference, setPreference } = useTheme();
-  const launchAtLogin = getSetting('launch_at_login') === 'true';
+  const savedLaunchAtLogin = getSetting('launch_at_login') === 'true';
+  // The real login-item state (System Settings can change it behind our back).
+  const [loginItem, setLoginItem] = useState<LoginItemStatus | null>(null);
+  const launchAtLogin = loginItem ? loginItem.enabled : savedLaunchAtLogin;
   const selectedDisplay = getSetting('selected_display') ?? 'primary';
   const disabledDisplays = parseDisabledDisplays(getSetting('disabled_displays'));
   const mac = isMacOS();
@@ -64,6 +77,14 @@ export function GeneralTab() {
       setPreference(savedTheme as ThemePreference);
     }
   }, [savedTheme, setPreference]);
+
+  useEffect(() => {
+    invoke<LoginItemStatus>('get_login_item_status')
+      .then((s) => {
+        if (isLoginItemStatus(s)) setLoginItem(s);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const load = () =>
@@ -95,13 +116,10 @@ export function GeneralTab() {
     const newValue = !launchAtLogin;
     setSetting('launch_at_login', newValue ? 'true' : 'false');
     try {
-      if (newValue) {
-        await enable();
-      } else {
-        await disable();
-      }
+      const status = await invoke<LoginItemStatus>('set_login_item', { enabled: newValue });
+      if (isLoginItemStatus(status)) setLoginItem(status);
     } catch (err) {
-      console.error('Failed to toggle autostart:', err);
+      console.error('Failed to toggle launch at login:', err);
     }
   }
 
@@ -152,6 +170,21 @@ export function GeneralTab() {
         <Card>
           <Toggle label="Launch at login" checked={launchAtLogin} onChange={handleToggleLaunch} />
         </Card>
+        {loginItem?.requiresApproval && (
+          <div data-testid="login-item-approval" className="flex items-center gap-3 mt-2">
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
+              Morph is switched off in System Settings → Login Items.
+            </p>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                invoke('open_login_items_settings').catch(() => {});
+              }}
+            >
+              Open Login Items
+            </Button>
+          </div>
+        )}
       </section>
 
       {/* Per-display on/off (macOS) — only shown with multiple monitors */}

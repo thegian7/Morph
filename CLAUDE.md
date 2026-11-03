@@ -73,6 +73,15 @@ In Fit mode, Settings → Border shows what will actually be drawn. `useReserved
   - A global mouse-down monitor (no permission needed) dismisses it on clicks in other apps. Blur and Escape call `hide_tray_popover`.
   - If a click inside it activated Morph, hiding hands focus back to the previous app, unless Settings is open.
 
+## Launch at Login (`login_item.rs`)
+
+- A **bundled** macOS app (macOS 13+) uses `SMAppService.mainApp`, so Morph shows up in System Settings → General → Login Items. Calls go through raw `msg_send` and link ServiceManagement.
+- `SmStatus::RequiresApproval` means the user switched Morph off in that pane. Settings then shows "Open Login Items", which calls `open_login_items_settings`.
+- A bare binary (`tauri dev`, whose `bundlePath` doesn't end in `.app`) and other platforms use tauri-plugin-autostart (a LaunchAgent on macOS).
+- At startup, `login_item::migrate` moves a live legacy LaunchAgent to SMAppService (bundled app only), so Morph never launches twice.
+- Settings → General shows the real state from `get_login_item_status`, not just the saved setting, and toggles through `set_login_item`.
+- Don't run a bundled build on a dev machine that has a dev-era `~/Library/LaunchAgents/Morph.plist` unless you mean to migrate it into Login Items.
+
 ## Multi-Page Vite Setup
 
 Two HTML entry points configured in `vite.config.ts`:
@@ -91,7 +100,7 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 
 - Rust: `cd src-tauri && cargo test`
 - TypeScript: `npx vitest run` (from project root)
-- Current totals: 143 Rust + 355 TypeScript = 498 tests
+- Current totals: 147 Rust + 360 TypeScript = 507 tests
 
 ## Key Events
 
