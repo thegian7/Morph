@@ -61,6 +61,18 @@ In Fit mode, Settings → Border shows what will actually be drawn. `useReserved
 
 `window_manager::DisplayPrefs` (Reduce Motion, Reduce Transparency, Increase Contrast, dark appearance) comes from `NSWorkspace` / `NSApp.effectiveAppearance`. The overlay fetches it with `get_display_prefs` and follows `display-prefs-changed`, which the 2 s poll emits on change. `src/overlay/display-prefs.ts` applies it to the `border-render` look on macOS, and to what each webview draws on Windows: no pulse, a contrast boost, an opacity floor, and darker colors in light mode. The raw state is still what gets broadcast to the tray. With Reduce Transparency on, the menu bar is opaque, so Fit mode moves its top tint to a hairline along the bottom of the menu-bar band, above the bar (`layout::for_opaque_menu_bar`).
 
+## Tray Icon and Popover (macOS)
+
+- **One tray icon**, built in `tray::setup_tray`. `tauri.conf.json` must not declare `app.trayIcon` too; that used to add a second, dead icon.
+- **Left-click** toggles the popover (`tray_popover.rs`). **Right-click** pops up the menu (`tray::popup_menu_under`, shown via the engine webview).
+- **The menu isn't attached to the status item on macOS.** tray-icon 0.21 sets `NSStatusItem.menu` at creation, and AppKit then opens that menu on *every* click, so `Click` events never arrive and the popover was unreachable. Menu events are handled through `AppHandle::on_menu_event`. `update_tray_menu` stores the menu in `TrayState::menu` instead of re-attaching it.
+- **The popover is created hidden at startup** and hidden or shown after that, never closed, so it opens instantly.
+  - It's frosted (`Effect::Popover`, state `Active`, 10pt radius) under a translucent page tint (`html.vibrant`), with a window shadow.
+  - It's centered under the icon (`popover_origin`, physical pixels, clamped to the monitor).
+  - It's shown at level 101 with `orderFrontRegardless`, so it doesn't activate Morph or steal focus.
+  - A global mouse-down monitor (no permission needed) dismisses it on clicks in other apps. Blur and Escape call `hide_tray_popover`.
+  - If a click inside it activated Morph, hiding hands focus back to the previous app, unless Settings is open.
+
 ## Multi-Page Vite Setup
 
 Two HTML entry points configured in `vite.config.ts`:
@@ -79,7 +91,7 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 
 - Rust: `cd src-tauri && cargo test`
 - TypeScript: `npx vitest run` (from project root)
-- Current totals: 139 Rust + 350 TypeScript = 489 tests
+- Current totals: 143 Rust + 355 TypeScript = 498 tests
 
 ## Key Events
 

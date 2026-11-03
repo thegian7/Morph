@@ -7,6 +7,10 @@ use tauri::{AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuil
 /// Holds the tray icon handle so other parts of the app can update the menu.
 pub struct TrayState {
     pub tray: tauri::tray::TrayIcon,
+    /// The tray menu. On macOS it is *not* attached to the status item (an
+    /// attached menu opens on every click, so the left-click popover never
+    /// would); it's popped up on right-click instead.
+    pub menu: Mutex<Menu<tauri::Wry>>,
 }
 
 /// Map a BorderState phase string to a human-readable status label.
@@ -161,87 +165,6 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     }
 }
 
-/// Toggle the tray popover window. Creates it if it doesn't exist, otherwise
-/// toggles visibility.
-fn toggle_popover(app: &AppHandle, position: tauri::PhysicalPosition<f64>) {
-    if let Some(window) = app.get_webview_window("tray-popover") {
-        // Window exists — toggle visibility
-        match window.is_visible() {
-            Ok(true) => {
-                let _ = window.hide();
-            }
-            Ok(false) => {
-                // Reposition near tray icon before showing
-                let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                    x: (position.x as i32).saturating_sub(160),
-                    y: position.y as i32,
-                }));
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-            Err(e) => {
-                eprintln!("Failed to check popover visibility: {e}");
-            }
-        }
-        return;
-    }
-
-    // Create new popover window
-    let popover = WebviewWindowBuilder::new(
-        app,
-        "tray-popover",
-        WebviewUrl::App("src/tray/index.html".into()),
-    )
-    .title("")
-    .inner_size(320.0, 400.0)
-    .position((position.x - 160.0).max(0.0), position.y)
-    .decorations(false)
-    .skip_taskbar(true)
-    .transparent(true)
-    .visible(true)
-    .build();
-
-    match popover {
-        Ok(_window) => {
-            // On macOS: defer NSWindow config so webview JS can load first
-            // (same pattern as overlay windows in lib.rs)
-            #[cfg(target_os = "macos")]
-            {
-                let handle = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    // Wait for webview to load
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-
-                    let handle2 = handle.clone();
-                    let _ = handle.run_on_main_thread(move || {
-                        if let Some(w) = handle2.get_webview_window("tray-popover") {
-                            if let Ok(ns_window_ptr) = w.ns_window() {
-                                use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior};
-
-                                // SAFETY: ns_window() returns a valid NSWindow pointer
-                                // and we are on the main thread via run_on_main_thread.
-                                let ns_window: &NSWindow =
-                                    unsafe { &*(ns_window_ptr as *const NSWindow) };
-
-                                // NSFloatingWindowLevel (3) — above normal windows
-                                ns_window.setLevel(3);
-                                ns_window.setCollectionBehavior(
-                                    NSWindowCollectionBehavior::CanJoinAllSpaces
-                                        | NSWindowCollectionBehavior::IgnoresCycle,
-                                );
-                                ns_window.setHasShadow(false);
-                            }
-                        }
-                    });
-                });
-            }
-        }
-        Err(e) => {
-            eprintln!("Failed to create tray popover: {e}");
-        }
-    }
-}
-
 /// Create the system tray with an initial menu based on current BorderState.
 pub fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let phase = {
@@ -253,21 +176,56 @@ pub fn setup_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let label = phase_to_label(&phase);
     let menu = build_menu(app.handle(), label)?;
 
-    let tray = TrayIconBuilder::new()
+    let builder = TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
-        .menu(&menu)
         .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray_icon, event| {
-            if let TrayIconEvent::Click { position, .. } = event {
-                toggle_popover(tray_icon.app_handle(), position);
+            let TrayIconEvent::Click {
+                rect,
+                button,
+                button_state: tauri::tray::MouseButtonState::Up,
+                ..
+            } = event
+            else {
+                return;
+            };
+            let app = tray_icon.app_handle();
+            let pos = rect.position.to_physical::<f64>(1.0);
+            let size = rect.size.to_physical::<f64>(1.0);
+            let icon = crate::tray_popover::PhysRect {
+                x: pos.x,
+                y: pos.y,
+                w: size.width,
+                h: size.height,
+            };
+            match button {
+                // Left click toggles the popover.
+                tauri::tray::MouseButton::Left => crate::tray_popover::toggle(app, icon),
+                // Right click shows the menu (macOS: popped up by hand, see
+                // TrayState::menu).
+                #[cfg(target_os = "macos")]
+                tauri::tray::MouseButton::Right => popup_menu_under(app, icon),
+                _ => {}
             }
-        })
-        .on_menu_event(|app, event| {
-            handle_menu_event(app, event);
-        })
-        .build(app)?;
+        });
+    // Everywhere but macOS the menu is attached to the tray as usual.
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.menu(&menu).on_menu_event(|app, event| {
+        handle_menu_event(app, event);
+    });
+    let tray = builder.build(app)?;
 
-    app.manage(TrayState { tray });
+    // macOS: the menu isn't attached to the tray, so handle its events
+    // app-wide.
+    #[cfg(target_os = "macos")]
+    app.handle().on_menu_event(|app, event| {
+        handle_menu_event(app, event);
+    });
+
+    app.manage(TrayState {
+        tray,
+        menu: Mutex::new(menu),
+    });
 
     // Listen for border-state-update events to update the tray icon color
     let handle = app.handle().clone();
@@ -289,8 +247,39 @@ pub fn update_tray_menu(app: &AppHandle, phase: &str) -> Result<(), Box<dyn std:
     let label = phase_to_label(phase);
     let menu = build_menu(app, label)?;
     let tray_state = app.state::<TrayState>();
-    tray_state.tray.set_menu(Some(menu))?;
+    #[cfg(not(target_os = "macos"))]
+    tray_state.tray.set_menu(Some(menu.clone()))?;
+    if let Ok(mut current) = tray_state.menu.lock() {
+        *current = menu;
+    }
     Ok(())
+}
+
+/// Pop the tray menu up just under the tray icon (macOS).
+///
+/// Shown on the color-engine webview, which always exists and sits at the
+/// primary display's top-left corner, so the icon's global logical position
+/// is also its position relative to that window.
+#[cfg(target_os = "macos")]
+fn popup_menu_under(app: &AppHandle, icon: crate::tray_popover::PhysRect) {
+    use tauri::menu::ContextMenu;
+    crate::tray_popover::hide(app);
+    let Some(window) = app.get_webview_window(crate::window_manager::macos::ENGINE_LABEL) else {
+        return;
+    };
+    let scale = app
+        .monitor_from_point(icon.x, icon.y)
+        .ok()
+        .flatten()
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0);
+    let at = tauri::LogicalPosition::new(icon.x / scale, (icon.y + icon.h) / scale);
+    let menu = app.state::<TrayState>().menu.lock().ok().map(|m| m.clone());
+    if let Some(menu) = menu {
+        if let Err(e) = menu.popup_at(window.as_ref().window(), at) {
+            eprintln!("Failed to show tray menu: {e}");
+        }
+    }
 }
 
 #[cfg(test)]

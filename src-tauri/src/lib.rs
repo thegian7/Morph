@@ -2,6 +2,7 @@ pub mod border_state;
 pub mod calendar;
 pub mod settings;
 pub mod tray;
+pub mod tray_popover;
 pub mod window_manager;
 
 use sqlx::Row;
@@ -485,6 +486,7 @@ pub fn run() {
             get_display_prefs,
             uses_native_border,
             get_reserved_edges,
+            tray_popover::hide_tray_popover,
         ])
         .setup(|app| {
             // Menu-bar (agent) app: no Dock icon, and its windows may join
@@ -563,6 +565,7 @@ pub fn run() {
             if let Err(e) = tray::setup_tray(app) {
                 eprintln!("Failed to set up system tray: {e}");
             }
+            tray_popover::precreate(app.handle());
 
             // Restore previously connected calendar providers from the database.
             // Spawned before the poller so providers are available by the first poll cycle.
