@@ -3,6 +3,7 @@ import { useSettings } from '../hooks/useSettings';
 import { Slider, Card, SectionHeader, Button } from '@/shared/components';
 import { MiniPreview } from '../components/MiniPreview';
 import { TimelineScrubber } from '../components/TimelineScrubber';
+import { PlacementSelector, isMacOS } from '../components/PlacementSelector';
 import type { BorderState, UserSettings } from '@/lib/color-engine/types';
 import { DEFAULT_USER_SETTINGS } from '@/lib/color-engine/types';
 
@@ -30,6 +31,7 @@ const INTENSITY_LABELS = ['Subtle (0.6\u00d7)', 'Normal (1.0\u00d7)', 'Vivid (1.
 const DEFAULTS = {
   border_thickness: 'medium',
   border_position: 'all',
+  border_mode: 'fit',
   color_palette: 'ambient',
   color_intensity: 'normal',
 } as const;
@@ -191,6 +193,7 @@ export function BorderTab() {
 
   const thickness = getSetting('border_thickness') ?? 'medium';
   const position = getSetting('border_position') ?? 'all';
+  const mode = getSetting('border_mode') ?? 'fit';
   const palette = getSetting('color_palette') ?? 'ambient';
   const intensity = getSetting('color_intensity') ?? 'normal';
 
@@ -286,6 +289,17 @@ export function BorderTab() {
           ))}
         </div>
       </section>
+
+      {/* Placement (macOS) */}
+      {isMacOS() && (
+        <section>
+          <SectionHeader
+            title="Placement"
+            description="How the border shares the screen with your windows."
+          />
+          <PlacementSelector mode={mode} onChange={(m) => setSetting('border_mode', m)} />
+        </section>
+      )}
 
       {/* Position */}
       <section>

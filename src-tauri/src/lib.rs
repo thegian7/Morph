@@ -19,11 +19,6 @@ use calendar::provider::CalendarProvider;
 
 use border_state::BorderState;
 
-#[cfg(target_os = "macos")]
-use window_manager::macos::MacOSOverlayManager;
-#[cfg(target_os = "macos")]
-use window_manager::OverlayManager;
-
 /// Default border thickness in logical pixels (maps to "medium").
 #[cfg(target_os = "macos")]
 const DEFAULT_THICKNESS: f64 = 16.0;
@@ -471,6 +466,8 @@ pub fn run() {
             force_sync,
             pause_border,
             get_available_monitors,
+            accessibility_status,
+            request_accessibility,
         ])
         .setup(|app| {
             // Border overlay windows are declared in tauri.conf.json.
@@ -493,49 +490,18 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     // Give webviews time to load HTML and initialize JS
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    relayout_borders(&handle).await;
 
-                    // Read saved thickness and selected display from settings
-                    let (thickness, selected_display) = {
-                        let db = handle.state::<tauri_plugin_sql::DbInstances>();
-                        let instances = db.0.read().await;
-                        if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) =
-                            instances.get("sqlite:morph.db")
-                        {
-                            let t = sqlx::query_scalar::<_, String>(
-                                "SELECT value FROM settings WHERE key = 'border_thickness'",
-                            )
-                            .fetch_optional(pool)
-                            .await
-                            .ok()
-                            .flatten()
-                            .map(|v| thickness_to_px(&v))
-                            .unwrap_or(DEFAULT_THICKNESS);
-                            let d = sqlx::query_scalar::<_, String>(
-                                "SELECT value FROM settings WHERE key = 'selected_display'",
-                            )
-                            .fetch_optional(pool)
-                            .await
-                            .ok()
-                            .flatten()
-                            .unwrap_or_else(|| "primary".to_string());
-                            (t, d)
-                        } else {
-                            (DEFAULT_THICKNESS, "primary".to_string())
-                        }
-                    };
-
-                    // NSWindow ops must run on the main thread
-                    let handle2 = handle.clone();
-                    let _ = handle.run_on_main_thread(move || {
-                        let mut overlay_mgr = MacOSOverlayManager::new();
-                        if let Err(e) = overlay_mgr.create_overlay_windows(&handle2) {
-                            eprintln!("Failed to configure macOS overlay: {e}");
-                        } else {
-                            overlay_mgr.set_target_monitor(&selected_display);
-                            overlay_mgr.set_thickness(thickness);
-                            // Don't call show() again — windows are already visible
-                        }
-                    });
+                    // Follow the Dock and menu bar: when they move, resize or
+                    // auto-hide, the usable area changes and the border must too.
+                    let mut tick = tokio::time::interval(std::time::Duration::from_secs(2));
+                    loop {
+                        tick.tick().await;
+                        let h = handle.clone();
+                        let _ = handle.run_on_main_thread(move || {
+                            window_manager::macos::refresh_if_geometry_changed(&h);
+                        });
+                    }
                 });
             }
 
@@ -814,7 +780,7 @@ fn setup_event_listeners(app: &tauri::App) {
         }
     });
 
-    // settings-changed: handle border_thickness and selected_display changes
+    // settings-changed: re-lay out the border when geometry-affecting settings change
     #[cfg(target_os = "macos")]
     {
         let handle = app.handle().clone();
@@ -822,55 +788,100 @@ fn setup_event_listeners(app: &tauri::App) {
             #[derive(serde::Deserialize)]
             struct SettingChanged {
                 key: String,
-                #[allow(dead_code)]
-                value: String,
             }
             if let Ok(payload) = serde_json::from_str::<SettingChanged>(event.payload()) {
-                if payload.key == "border_thickness" || payload.key == "selected_display" {
-                    // Re-read both values from DB and reposition
+                if matches!(
+                    payload.key.as_str(),
+                    "border_thickness" | "selected_display" | "border_mode" | "border_position"
+                ) {
                     let h = handle.clone();
                     tauri::async_runtime::spawn(async move {
-                        let (thickness, selected_display) = {
-                            let db = h.state::<tauri_plugin_sql::DbInstances>();
-                            let instances = db.0.read().await;
-                            if let Some(tauri_plugin_sql::DbPool::Sqlite(pool)) =
-                                instances.get("sqlite:morph.db")
-                            {
-                                let t = sqlx::query_scalar::<_, String>(
-                                    "SELECT value FROM settings WHERE key = 'border_thickness'",
-                                )
-                                .fetch_optional(pool)
-                                .await
-                                .ok()
-                                .flatten()
-                                .map(|v| thickness_to_px(&v))
-                                .unwrap_or(DEFAULT_THICKNESS);
-                                let d = sqlx::query_scalar::<_, String>(
-                                    "SELECT value FROM settings WHERE key = 'selected_display'",
-                                )
-                                .fetch_optional(pool)
-                                .await
-                                .ok()
-                                .flatten()
-                                .unwrap_or_else(|| "primary".to_string());
-                                (t, d)
-                            } else {
-                                (DEFAULT_THICKNESS, "primary".to_string())
-                            }
-                        };
-
-                        let h2 = h.clone();
-                        let _ = h.run_on_main_thread(move || {
-                            let mut mgr = MacOSOverlayManager::new();
-                            if mgr.create_overlay_windows(&h2).is_ok() {
-                                mgr.set_target_monitor(&selected_display);
-                                mgr.set_thickness(thickness);
-                            }
-                        });
+                        relayout_borders(&h).await;
                     });
                 }
             }
         });
+    }
+}
+
+/// Read the layout-affecting settings from the database.
+#[cfg(target_os = "macos")]
+async fn read_layout_config(handle: &tauri::AppHandle) -> window_manager::macos::LayoutConfig {
+    use window_manager::layout::{BorderMode, Edges};
+
+    let db = handle.state::<tauri_plugin_sql::DbInstances>();
+    let instances = db.0.read().await;
+    let pool = match instances.get("sqlite:morph.db") {
+        Some(tauri_plugin_sql::DbPool::Sqlite(pool)) => Some(pool),
+        _ => None,
+    };
+    let get = |key: &'static str| async move {
+        match pool {
+            Some(pool) => {
+                sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ?1")
+                    .bind(key)
+                    .fetch_optional(pool)
+                    .await
+                    .ok()
+                    .flatten()
+            }
+            None => None,
+        }
+    };
+
+    window_manager::macos::LayoutConfig {
+        mode: BorderMode::from_setting(&get("border_mode").await.unwrap_or_default()),
+        edges: Edges::from_position(&get("border_position").await.unwrap_or_default()),
+        thickness: get("border_thickness")
+            .await
+            .map(|v| thickness_to_px(&v))
+            .unwrap_or(DEFAULT_THICKNESS),
+        monitor_id: get("selected_display")
+            .await
+            .unwrap_or_else(|| "primary".to_string()),
+    }
+}
+
+/// Re-read layout settings and re-apply the border layout on the main thread
+/// (NSWindow operations must run there).
+#[cfg(target_os = "macos")]
+async fn relayout_borders(handle: &tauri::AppHandle) {
+    let config = read_layout_config(handle).await;
+    let h = handle.clone();
+    let _ = handle.run_on_main_thread(move || {
+        window_manager::macos::configure_and_apply(&h, &config);
+    });
+}
+
+/// Whether the app has macOS Accessibility access (needed by "Reserve space").
+#[tauri::command]
+fn accessibility_status() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        window_manager::macos_reserve::is_trusted()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
+/// Prompt for Accessibility access and open the matching System Settings pane.
+#[tauri::command]
+fn request_accessibility() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        let trusted = window_manager::macos_reserve::request_trust();
+        if !trusted {
+            let _ = open::that(
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            );
+        }
+        trusted
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
     }
 }
 

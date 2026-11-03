@@ -22,6 +22,20 @@ Current pattern in `lib.rs`:
 
 If you modify overlay window setup, preserve this ordering.
 
+## macOS Border Placement (`border_mode` setting)
+
+Geometry is pure and unit-tested in `src-tauri/src/window_manager/layout.rs`; `macos.rs` applies it.
+
+- `fit` (default): draws only in space macOS already reserves. The top window fills the menu-bar band (`frame` minus `visibleFrame`) at level 23, just under `NSMainMenuWindowLevel`, so menu titles and status items draw on top. Dock edges get a strip at level 19, under the Dock. Edges with no reserved band are ordered out.
+- `reserve`: strips sit inside `visibleFrame` at `NSStatusWindowLevel` (25), and `macos_reserve.rs` (Accessibility API, ~4 Hz poll) keeps other apps' windows out of them. Edges snapped to the screen are trimmed and floating windows slid. It skips while the mouse button is down, skips fullscreen windows and Morph's own windows, and gives up after 3 failed attempts per window. Needs Accessibility access (`accessibility_status` / `request_accessibility` commands).
+- `overlay`: classic full-frame edges at level 25 (it used to be 1000, which covered menus, Spotlight and Notification Center).
+
+Gotchas:
+- AppKit pushes windows below menu-bar level out from under the menu bar. `macos.rs` adds a `constrainFrameRect:toScreen:` override to `TaoWindow` that leaves tint-level (19/23) windows alone. Don't swap the windows' class (`object_setClass`) instead: Tao windows are KVO-observed (`NSKVONotifying_TaoWindow`), and re-classing them crashes with a segfault.
+- `border-top` is the leader that broadcasts state to the tray, so it is never ordered out. When it has no strip, it's parked as a 1pt speck.
+- Relayout uses `orderFrontRegardless`, not Tauri `show()`, which would steal focus.
+- A 2 s main-thread poll (`refresh_if_geometry_changed`) re-applies the layout when the Dock or menu bar changes size, position or auto-hide.
+
 ## Multi-Page Vite Setup
 
 Two HTML entry points configured in `vite.config.ts`:
@@ -40,11 +54,11 @@ Border windows are declared in `tauri.conf.json`, NOT created dynamically via `W
 
 - Rust: `cd src-tauri && cargo test`
 - TypeScript: `npx vitest run` (from project root)
-- Current totals: 93 Rust + 313 TypeScript = 406 tests
+- Current totals: 117 Rust + 321 TypeScript = 438 tests
 
 ## Key Events
 
 - `border-state-update`: Broadcast by the border-top overlay window (the leader) whenever its computed state changes; consumed by the tray icon (Rust) and tray popover. The overlay windows each run the color engine locally at 1 Hz.
 - `calendar-events-update`: Emitted by calendar poller when events change
-- `settings-changed`: Emitted by the `set_setting` command with `{ key, value }`; consumed by the overlay, theme hook, and window manager
+- `settings-changed`: Emitted by the `set_setting` command with `{ key, value }`; consumed by the overlay, theme hook, and window manager (`border_thickness`, `selected_display`, `border_mode`, `border_position` trigger a relayout)
 - `border-paused`: Emitted by `pause_border` with `{ minutes }` — positive = pause duration, `0` = resume, negative = pause until the next calendar event starts
